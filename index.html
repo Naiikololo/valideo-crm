@@ -737,7 +737,7 @@
     <div class="modal-field"><label class="modal-label">Nom *</label><input class="modal-input" id="p-nom" placeholder="Jean Dupont"></div>
     <div class="modal-field"><label class="modal-label">Entreprise</label><input class="modal-input" id="p-entreprise" placeholder="Dupont Services"></div>
     <div class="modal-field"><label class="modal-label">Secteur</label><input class="modal-input" id="p-secteur" placeholder="Plomberie, Électricité..."></div>
-    <div class="modal-field"><label class="modal-label">Téléphone</label><input class="modal-input" id="p-telephone" placeholder="06 XX XX XX XX"></div>
+    <div class="modal-field"><label class="modal-label">Téléphone</label><input class="modal-input" id="p-telephone" placeholder="06 XX XX XX XX" oninput="this.value=this.value.replace(/[^\d\s+]/g,'')" onblur="this.value=formatPhone(this.value)"></div>
     <div class="modal-field"><label class="modal-label">Email</label><input class="modal-input" id="p-email" placeholder="jean@dupont.fr" type="email"></div>
     <div class="modal-field"><label class="modal-label">Source</label>
       <select class="modal-select" id="p-source">
@@ -1156,7 +1156,7 @@ function renderProspectsTable() {
       <div><div class="prospect-name">${p['Nom'] || '—'}</div></div>
       <div><div style="font-size:13px;">${p['Entreprise'] || '—'}</div><div style="font-size:11px;color:var(--text-3)">${p['Secteur'] || ''}</div></div>
       <div onclick="event.stopPropagation()">
-        ${p['Téléphone'] ? `<div style="font-size:12px;font-weight:600;color:var(--text);user-select:all;cursor:text;">${p['Téléphone']}</div>` : ''}
+        ${p['Téléphone'] ? `<div style="font-size:12px;font-weight:600;color:var(--text);user-select:all;cursor:text;">${formatPhone(p['Téléphone'])}</div>` : ''}
         ${p['Email'] ? `<div style="font-size:11px;color:var(--text-3);margin-top:2px;user-select:all;cursor:text;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p['Email']}">${p['Email']}</div>` : ''}
         ${!p['Téléphone'] && !p['Email'] ? `<span style="color:var(--text-3);">—</span>` : ''}
       </div>
@@ -1223,7 +1223,7 @@ function renderDrawer() {
 
     <div class="drawer-section">
       <div class="drawer-section-title">Contacts</div>
-      ${p['Téléphone'] ? `<div class="drawer-row"><div class="drawer-row-label">Téléphone</div><div class="drawer-row-value"><span style="user-select:all;cursor:text;">${p['Téléphone']}</span></div></div>` : ''}
+      ${p['Téléphone'] ? `<div class="drawer-row"><div class="drawer-row-label">Téléphone</div><div class="drawer-row-value"><span style="user-select:all;cursor:text;">${formatPhone(p['Téléphone'])}</span></div></div>` : ''}
       ${p['Email'] ? `<div class="drawer-row"><div class="drawer-row-label">Email</div><div class="drawer-row-value"><a href="mailto:${p['Email']}" style="color:inherit;text-decoration:none;font-size:12px;">${p['Email']}</a></div></div>` : ''}
       ${p['Source'] ? `<div class="drawer-row"><div class="drawer-row-label">Source</div><div class="drawer-row-value">${p['Source']}</div></div>` : ''}
       ${p['Offre intéressée'] ? `<div class="drawer-row"><div class="drawer-row-label">Offre</div><div class="drawer-row-value">${p['Offre intéressée']}</div></div>` : ''}
@@ -1315,13 +1315,12 @@ function buildStatsHtml(p, nbAppels, demosFaites, noShows, nbUsers, hasOffre) {
     : '';
   const usersBtn = '<button onclick="openEditNbUsers(' + "'" + pid + "'" + ')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#10B981;opacity:0.7;padding:0;line-height:1;">✏️</button>';
   const usersChip = '<span style="background:rgba(16,185,129,0.08);color:#10B981;border:1px solid rgba(16,185,129,0.15);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">👥 ' + nbUsers + ' utilisateur' + (nbUsers > 1 ? 's' : '') + ' ' + usersBtn + '</span>';
-  const statsGrid = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;' + (hasOffre ? 'margin-bottom:14px;' : '') + '">'
-    + '<div style="background:#f4f6f8;border-radius:10px;padding:12px 14px;"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px;font-weight:600;">Appels</div><div style="font-size:22px;font-weight:800;color:#1a3c5e;">' + nbAppels + '</div></div>'
-    + '<div style="background:#f4f6f8;border-radius:10px;padding:12px 14px;"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px;font-weight:600;">Démos faites</div><div style="font-size:22px;font-weight:800;color:#3B82F6;">' + demosFaites + '</div></div>'
-    + '<div style="background:#f4f6f8;border-radius:10px;padding:12px 14px;"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px;font-weight:600;">No show</div><div style="font-size:22px;font-weight:800;color:#EF4444;">' + noShows + '</div></div>'
+  const statsGrid = '<div style="display:flex;gap:10px;' + (hasOffre ? 'margin-bottom:12px;' : '') + '">'
+    + '<div style="background:#f4f6f8;border-radius:8px;padding:8px 16px;display:flex;align-items:center;gap:10px;"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;">Appels</div><div style="font-size:18px;font-weight:800;color:#1a3c5e;">' + nbAppels + '</div></div>'
+    + '<div style="background:#f4f6f8;border-radius:8px;padding:8px 16px;display:flex;align-items:center;gap:10px;"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;">Démos faites</div><div style="font-size:18px;font-weight:800;color:#3B82F6;">' + demosFaites + '</div></div>'
     + '</div>';
   const chipsRow = hasOffre ? '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' + offreChip + usersChip + '</div>' : '';
-  return '<div style="padding:16px 24px;border-bottom:1px solid #e2e8f0;">' + statsGrid + chipsRow + '</div>';
+  return '<div style="padding:10px 20px;border-bottom:1px solid #e2e8f0;">' + statsGrid + chipsRow + '</div>';
 }
 
 function renderFullProspect() {
@@ -1347,7 +1346,7 @@ function renderFullProspect() {
   const _noShows = _evts0.filter(e => e['Type']==='meet' && e['Statut']==='No show').length;
   const _nbUsers = parseInt(p['Nb utilisateurs']) || 1;
   const _hasOffre = p['Offre intéressée'] || p['Nb utilisateurs'];
-  const _statsHtml = buildStatsHtml(p, _nbAppels, _demosFaites, _noShows, _nbUsers, _hasOffre);
+  const _statsHtml = buildStatsHtml(p, _nbAppels, _demosFaites, 0, _nbUsers, _hasOffre);
 
   document.getElementById('prospect-page-content').innerHTML = loadingBarHtml + staleBannerHtml + `
     <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:14px;">
@@ -1397,22 +1396,22 @@ function renderFullProspect() {
 
           <!-- Contacts en grille -->
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--border);">
-            <div style="padding:14px 18px;${p['Email'] ? 'border-right:1px solid var(--border);' : ''}">
+            <div style="padding:10px 18px;${p['Email'] ? 'border-right:1px solid var(--border);' : ''}">
               <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:5px;">Téléphone</div>
-              ${p['Téléphone'] ? `<span style="font-size:13px;font-weight:600;color:var(--navy);user-select:all;cursor:text;">📞 ${p['Téléphone']}</span>` : `<span style="font-size:13px;color:var(--text-3);">—</span>`}
+              ${p['Téléphone'] ? `<span style="font-size:13px;font-weight:600;color:var(--navy);user-select:all;cursor:text;">📞 ${formatPhone(p['Téléphone'])}</span>` : `<span style="font-size:13px;color:var(--text-3);">—</span>`}
             </div>
-            <div style="padding:14px 18px;border-right:1px solid var(--border);">
+            <div style="padding:10px 18px;border-right:1px solid var(--border);">
               <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:5px;">Email</div>
               ${p['Email'] ? `<a href="mailto:${p['Email']}" style="font-size:13px;font-weight:600;color:var(--navy);text-decoration:none;word-break:break-all;">✉️ ${p['Email']}</a>` : `<span style="font-size:13px;color:var(--text-3);">—</span>`}
             </div>
-            <div style="padding:14px 18px;">
+            <div style="padding:10px 18px;">
               <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:5px;">Source</div>
               <span style="font-size:13px;font-weight:600;color:var(--text-2);">${p['Source'] ? '🔗 ' + p['Source'] : '<span style="color:var(--text-3);">—</span>'}</span>
             </div>
           </div>
 
           <!-- Notes permanentes -->
-          <div style="padding:16px 24px;">
+          <div style="padding:12px 20px;">
             <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;">Notes permanentes</div>
             <div class="notes-perm"><textarea id="notes-perm-input" oninput="debounceSaveNotes()" placeholder="Contexte, infos clés, points d'attention...">${p['Notes permanentes'] || ''}</textarea></div>
           </div>
@@ -1510,7 +1509,7 @@ function openEditProspect() {
   document.getElementById('p-nom').value = p['Nom'] || '';
   document.getElementById('p-entreprise').value = p['Entreprise'] || '';
   document.getElementById('p-secteur').value = p['Secteur'] || '';
-  document.getElementById('p-telephone').value = p['Téléphone'] || '';
+  document.getElementById('p-telephone').value = formatPhone(p['Téléphone']) || '';
   document.getElementById('p-email').value = p['Email'] || '';
   document.getElementById('p-source').value = p['Source'] || '';
   document.getElementById('p-offre').value = p['Offre intéressée'] || '';
@@ -1521,7 +1520,7 @@ function openEditProspect() {
 async function saveProspect() {
   const id = document.getElementById('edit-prospect-id').value;
   const data = { nom: document.getElementById('p-nom').value, entreprise: document.getElementById('p-entreprise').value,
-    secteur: document.getElementById('p-secteur').value, telephone: document.getElementById('p-telephone').value,
+    secteur: document.getElementById('p-secteur').value, telephone: formatPhone(document.getElementById('p-telephone').value),
     email: document.getElementById('p-email').value, source: document.getElementById('p-source').value,
     offre: document.getElementById('p-offre').value, nbUtilisateurs: document.getElementById('p-nb').value };
   if (!data.nom.trim()) { showToast('Le nom est requis', 'error'); return; }
@@ -1784,7 +1783,14 @@ async function deleteCall(id) {
   api('deleteAppel', { id }).then(r => { if (r?.error) showToast('❌ Erreur suppression appel : ' + r.error, 'error'); });
 }
 
-// openEditDateTime replaced by inline toggleCallDateEdit
+// openEditDateTime - opens date/heure modal for calls in the unified timeline
+function openEditDateTime(callId, currentDate, currentHeure) {
+  // Reuse the event date modal with a special 'appel' type context
+  _editEventCtx = { callId, type: 'appel' };
+  document.getElementById('edit-event-date-input').value = currentDate || '';
+  document.getElementById('edit-event-heure-input').value = currentHeure || '';
+  document.getElementById('modal-edit-event-date').classList.remove('hidden');
+}
 
 // ─── MEET / RELANCE ────────────────────────────────────────
 function openMeetModal() {
@@ -2153,11 +2159,27 @@ function editEvenementCalendarModal(evenementId, eventIdCalendar, type, currentD
 
 function confirmEventDateEdit() {
   if (!_editEventCtx) return;
-  const { evenementId, eventIdCalendar, type } = _editEventCtx;
+  const { evenementId, eventIdCalendar, type, callId } = _editEventCtx;
   const newDate = document.getElementById('edit-event-date-input').value;
   const newHeure = document.getElementById('edit-event-heure-input').value;
   if (!newDate) { showToast('⚠️ La date est requise', 'error'); return; }
   closeModal('modal-edit-event-date');
+
+  // Handle appel date edit
+  if (type === 'appel' && callId) {
+    const pid = selectedProspect?.['ID'];
+    if (!pid) return;
+    const calls = appelsCache[pid] || [];
+    const call = calls.find(a => a['ID'] == callId);
+    if (!call) return;
+    call['Date'] = newDate;
+    call['Heure'] = newHeure || '';
+    renderUnifiedTimeline(pid);
+    showToast('Date mise à jour ✓', 'success');
+    api('updateAppel', { id: callId, date: newDate, heure: newHeure || '', note: call['Note'] || '' })
+      .then(r => { if (r?.error) showToast('❌ ' + r.error, 'error'); });
+    return;
+  }
   const pid = selectedProspect['ID'];
   if (evenementsCache[pid]) {
     const i = evenementsCache[pid].findIndex(e => e['ID'] == evenementId);
@@ -2602,6 +2624,23 @@ async function deleteEvenement(evenementId, eventIdCalendar, type) {
 // API key stored directly in localStorage after successful login
 const SESSION_KEY = 'valideo_crm_auth';
 const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+function formatPhone(val) {
+  if (!val) return '';
+  // Remove all non-digits
+  let digits = String(val).replace(/\D/g, '');
+  // Pad with leading 0 if 9 digits (0 was stripped as number)
+  if (digits.length === 9) digits = '0' + digits;
+  // Format as XX XX XX XX XX (French mobile)
+  if (digits.length === 10) {
+    return digits.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
+  }
+  // International +33 6 ...
+  if (digits.startsWith('33') && digits.length === 11) {
+    return '+' + digits.replace(/(\d{2})(\d{1})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5 $6');
+  }
+  return digits;
+}
 
 async function hashPassword(pwd) {
   const msgBuffer = new TextEncoder().encode(pwd);
