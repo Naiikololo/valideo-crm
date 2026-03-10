@@ -700,6 +700,15 @@
             <select id="param-statut-defaut" class="modal-select" style="max-width:240px;" onchange="saveParam('statut_defaut', this.value)">
             </select>
           </div>
+          <div class="modal-field" style="margin-top:12px;">
+            <label class="modal-label">Tags par défaut (nouveau prospect)</label>
+            <div id="param-tags-defaut-wrap" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;"></div>
+            <div style="margin-top:8px;">
+              <select id="param-tags-defaut-add" class="modal-select" style="max-width:200px;" onchange="addDefaultTag(this.value);this.value=''">
+                <option value="">+ Ajouter un tag</option>
+              </select>
+            </div>
+          </div>
         </div>
 
         <!-- Sécurité -->
@@ -1124,10 +1133,6 @@ function preloadRecentProspects() {
       // If this prospect is currently open, refresh silently
       if (selectedProspect?.['ID'] == pid && currentView === 'prospect') {
         renderFullProspect();
-        const bar = document.getElementById('fiche-loading-bar');
-        const banner = document.getElementById('fiche-stale-banner');
-        if (bar) bar.remove();
-        if (banner) banner.remove();
       }
     });
     setTimeout(loadNext, 1500); // throttle: 1 per 1500ms
@@ -1216,7 +1221,6 @@ function getFilteredProspects() {
     }
     return true;
   }).sort((a, b) => {
-    const today = new Date().toISOString().split('T')[0];
     const aLate = a['Date relance'] && a['Date relance'] < today && !['Client','Perdu','Mise en sommeil'].includes(a['Statut']);
     const bLate = b['Date relance'] && b['Date relance'] < today && !['Client','Perdu','Mise en sommeil'].includes(b['Statut']);
     return (bLate ? 1 : 0) - (aLate ? 1 : 0);
@@ -1343,7 +1347,7 @@ function renderDrawer() {
       <div class="drawer-section-title">Statut</div>
       <div class="status-dropdown" id="drawer-status-dd">
         <span class="badge" style="background:${statut.Couleur}22;color:${statut.Couleur};border:1px solid ${statut.Couleur}44;font-size:12px;padding:6px 12px;cursor:pointer;" onclick="toggleDrawerStatusDd()">
-          <span class="badge-dot" style="background:${statut.Couleur}"></span>${p['Statut']} ▾
+          <span class="badge-dot" style="background:${statut.Couleur}"></span>${esc(p['Statut'])} ▾
         </span>
         <div class="status-dropdown-menu hidden" id="drawer-status-dd-menu">
           ${statuts.map(s => `<div class="status-dd-item ${p['Statut'] === s['Nom'] ? 'active' : ''}" onclick="changeStatut('${s['Nom']}');closeDrawerStatusDd()">
@@ -1357,8 +1361,8 @@ function renderDrawer() {
       <div class="drawer-section-title">Contacts</div>
       ${p['Téléphone'] ? `<div class="drawer-row"><div class="drawer-row-label">Téléphone</div><div class="drawer-row-value"><span style="user-select:all;cursor:text;">${formatPhone(p['Téléphone'])}</span></div></div>` : ''}
       ${p['Email'] ? `<div class="drawer-row"><div class="drawer-row-label">Email</div><div class="drawer-row-value"><a href="mailto:${p['Email']}" style="color:inherit;text-decoration:none;font-size:12px;">${p['Email']}</a></div></div>` : ''}
-      ${p['Source'] ? `<div class="drawer-row"><div class="drawer-row-label">Source</div><div class="drawer-row-value">${p['Source']}</div></div>` : ''}
-      ${p['Offre intéressée'] ? `<div class="drawer-row"><div class="drawer-row-label">Offre</div><div class="drawer-row-value">${p['Offre intéressée']}</div></div>` : ''}
+      ${p['Source'] ? `<div class="drawer-row"><div class="drawer-row-label">Source</div><div class="drawer-row-value">${esc(p['Source'])}</div></div>` : ''}
+      ${p['Offre intéressée'] ? `<div class="drawer-row"><div class="drawer-row-label">Offre</div><div class="drawer-row-value">${esc(p['Offre intéressée'])}</div></div>` : ''}
       
     </div>
 
@@ -1422,14 +1426,7 @@ function openFullProspect(action) {
     Promise.all([
       appelsCache[pid] ? Promise.resolve() : loadAppels(pid),
       evenementsCache[pid] ? Promise.resolve() : loadEvenements(pid)
-    ]).then(() => {
-      renderFullProspect();
-      // Remove loading indicators
-      const bar = document.getElementById('fiche-loading-bar');
-      const banner = document.getElementById('fiche-stale-banner');
-      if (bar) bar.remove();
-      if (banner) banner.remove();
-    });
+    ]).then(() => renderFullProspect());
   }
   if (action === 'call') {
     // Use requestAnimationFrame to ensure DOM is ready after renderFullProspect
@@ -1511,7 +1508,7 @@ function renderFullProspect() {
       </div>
       <div class="status-dropdown" id="status-dd">
         <span class="badge" style="background:${statut.Couleur}22;color:${statut.Couleur};border:1px solid ${statut.Couleur}44;font-size:12px;padding:6px 14px;cursor:pointer;" onclick="document.getElementById('status-dd-menu').classList.toggle('hidden')">
-          <span class="badge-dot" style="background:${statut.Couleur}"></span>${p['Statut']} ▾
+          <span class="badge-dot" style="background:${statut.Couleur}"></span>${esc(p['Statut'])} ▾
         </span>
         <div class="status-dropdown-menu hidden" id="status-dd-menu">
           ${statuts.map(s => `<div class="status-dd-item ${p['Statut'] === s['Nom'] ? 'active' : ''}" onclick="changeStatut('${s['Nom']}');document.getElementById('status-dd-menu').classList.add('hidden')">
@@ -1706,7 +1703,11 @@ async function saveProspect() {
              (data.email && data.email.trim() && pEmail && pEmail === data.email.toLowerCase().trim());
     });
     if (dup) {
-      const ok = await showConfirm(`Un prospect similaire existe déjà : <strong>${esc(dup['Nom'])}</strong>.<br>Même ${telNorm && String(dup['Téléphone']||'').replace(/\s/g,'') === telNorm ? 'téléphone' : 'email'}. Créer quand même ?`, 'Doublon détecté', 'Créer quand même');
+      const dupTel = dup['Téléphone'] ? String(dup['Téléphone']).replace(/\D/g,'') : '';
+      const dupEmail = dup['Email'] ? String(dup['Email']).toLowerCase().trim() : '';
+      const matchedByTel = telNorm.length >= 9 && dupTel.length >= 9 && (dupTel === telNorm || dupTel.endsWith(telNorm.slice(-9)) || telNorm.endsWith(dupTel.slice(-9)));
+      const matchReason = matchedByTel ? 'Même téléphone' : 'Même email';
+      const ok = await showConfirm(`Un prospect similaire existe déjà : <strong>${esc(dup['Nom'] || dup['Entreprise'])}</strong>.<br>${matchReason}. Créer quand même ?`, 'Doublon détecté', 'Créer quand même');
       if (!ok) return;
     }
   }
@@ -1721,7 +1722,7 @@ async function saveProspect() {
   } else {
     const tempId = 'temp_' + Date.now();
     const defaultStatut = parametres['statut_defaut'] || 'Nouveau';
-    const defaultTags = 'Vous';
+    const defaultTags = parametres['tags_defaut'] || '';
     const defaultOffre = data.offre || 'Gratuit';
     const newP = {'ID':tempId,'Nom':data.nom,'Entreprise':data.entreprise,'Secteur':data.secteur,'Téléphone':data.telephone,'Email':data.email,'Source':data.source,'Offre intéressée':defaultOffre,'Nb utilisateurs':data.nbUtilisateurs,'Statut':defaultStatut,'Date relance':'','Dernière activité':today,'Date création':today,'Tags':defaultTags,'Notes permanentes':''};
     data.offre = defaultOffre; data.tags = defaultTags; data.statut = defaultStatut;
@@ -1898,8 +1899,6 @@ function toggleCallDateEdit(id) {
   const edit = document.getElementById('call-dt-edit-' + id);
   if (!view || !edit) return;
   const isHidden = edit.classList.contains('hidden');
-  view.classList.toggle('hidden', isHidden ? false : false);
-  // toggle properly
   if (isHidden) {
     view.style.display = 'none';
     edit.classList.remove('hidden');
@@ -2020,19 +2019,17 @@ async function confirmMeet() {
   if (meetBtn) { meetBtn.disabled = false; meetBtn.textContent = 'Creer et envoyer invitation'; }
   _creatingMeet = false;
   if (result?.error) { showToast('❌ ' + result.error, 'error'); return; }
-  const pid2 = p['ID'];
-  loadEvenements(pid2).then(() => {
-    if (currentView === 'prospect') {
-      document.getElementById('unified-timeline').innerHTML = renderUnifiedTimeline(pid2);
-      const rc = document.getElementById('events-right-card'); if (rc) rc.innerHTML = renderEventsRightPanel(pid2);
-    }
-  });
-  showToast('✅ Google Meet créé et invitation envoyée', 'success');
   const todayStr = new Date().toISOString().split('T')[0];
   const pidxM = prospects.findIndex(pr => pr['ID'] == p['ID']);
   if (pidxM !== -1) prospects[pidxM]['Dernière activité'] = todayStr;
   if (selectedProspect?.['ID'] == p['ID']) selectedProspect['Dernière activité'] = todayStr;
-  if (result.meetLink) showToast('✅ Google Meet créé', 'success', 4000);
+  showToast('✅ Google Meet créé et invitation envoyée', 'success');
+  loadEvenements(p['ID']).then(() => {
+    if (currentView === 'prospect') {
+      document.getElementById('unified-timeline').innerHTML = renderUnifiedTimeline(p['ID']);
+      const rc = document.getElementById('events-right-card'); if (rc) rc.innerHTML = renderEventsRightPanel(p['ID']);
+    }
+  });
 }
 
 function openRelanceModal() {
@@ -2068,15 +2065,14 @@ async function confirmRelance() {
     _creatingRelance = false;
     if (r?.error) { showToast('❌ Erreur Calendar : ' + r.error, 'error'); return; }
     showToast('✅ Relance planifiée dans Calendar', 'success');
-    const todayStr2 = new Date().toISOString().split('T')[0];
+    const todayStrR = new Date().toISOString().split('T')[0];
     const pidxR = prospects.findIndex(pr => pr['ID'] == p['ID']);
-    if (pidxR !== -1) prospects[pidxR]['Dernière activité'] = todayStr2;
-    if (selectedProspect?.['ID'] == p['ID']) selectedProspect['Dernière activité'] = todayStr2;
-    const pid3 = p['ID'];
-    loadEvenements(pid3).then(() => {
+    if (pidxR !== -1) prospects[pidxR]['Dernière activité'] = todayStrR;
+    if (selectedProspect?.['ID'] == p['ID']) selectedProspect['Dernière activité'] = todayStrR;
+    loadEvenements(p['ID']).then(() => {
       if (currentView === 'prospect') {
-        document.getElementById('unified-timeline').innerHTML = renderUnifiedTimeline(pid3);
-        const rc = document.getElementById('events-right-card'); if (rc) rc.innerHTML = renderEventsRightPanel(pid3);
+        document.getElementById('unified-timeline').innerHTML = renderUnifiedTimeline(p['ID']);
+        const rc = document.getElementById('events-right-card'); if (rc) rc.innerHTML = renderEventsRightPanel(p['ID']);
       }
     });
   }).catch(() => {
@@ -2193,6 +2189,43 @@ function renderSettings() {
     const currentDefault = parametres['statut_defaut'] || 'Nouveau';
     psd.innerHTML = statuts.map(s => `<option value="${esc(s['Nom'])}" ${currentDefault === s['Nom'] ? 'selected' : ''}>${esc(s['Nom'])}</option>`).join('');
   }
+  // Tags par défaut
+  const ptdWrap = document.getElementById('param-tags-defaut-wrap');
+  const ptdAdd = document.getElementById('param-tags-defaut-add');
+  if (ptdWrap && ptdAdd) {
+    const currentDefaultTags = (parametres['tags_defaut'] || 'Vous').split(',').filter(Boolean);
+    ptdWrap.innerHTML = currentDefaultTags.map(t => {
+      const tagObj = tags.find(tg => tg['Nom'] === t.trim());
+      const col = tagObj ? tagObj['Couleur'] : '#94A3B8';
+      return `<span style="background:${col}22;color:${col};border:1px solid ${col}44;border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">
+        ${esc(t.trim())}
+        <span onclick="removeDefaultTag('${esc(t.trim())}')" style="cursor:pointer;opacity:0.7;font-size:13px;line-height:1;" title="Retirer">×</span>
+      </span>`;
+    }).join('') || '<span style="font-size:12px;color:var(--text-3);">Aucun tag par défaut</span>';
+    const existingDefaultTags = (parametres['tags_defaut'] || 'Vous').split(',').filter(Boolean);
+    ptdAdd.innerHTML = '<option value="">+ Ajouter un tag</option>' + tags
+      .filter(t => !existingDefaultTags.includes(t['Nom']))
+      .map(t => `<option value="${esc(t['Nom'])}">${esc(t['Nom'])}</option>`).join('');
+  }
+}
+
+// ─── TAGS PAR DÉFAUT ─────────────────────────────────────
+function addDefaultTag(tagName) {
+  if (!tagName) return;
+  const current = (parametres['tags_defaut'] || '').split(',').filter(Boolean);
+  if (current.includes(tagName)) return;
+  current.push(tagName);
+  const newVal = current.join(',');
+  parametres['tags_defaut'] = newVal;
+  renderSettings();
+  api('updateParametre', { cle: 'tags_defaut', valeur: newVal }).then(() => showToast('Tag par défaut ajouté ✓', 'success'));
+}
+function removeDefaultTag(tagName) {
+  const current = (parametres['tags_defaut'] || '').split(',').filter(Boolean);
+  const newVal = current.filter(t => t !== tagName).join(',');
+  parametres['tags_defaut'] = newVal;
+  renderSettings();
+  api('updateParametre', { cle: 'tags_defaut', valeur: newVal }).then(() => showToast('Tag par défaut retiré ✓', 'success'));
 }
 
 // ─── DRAG & DROP — STATUTS ────────────────────────────────
@@ -2318,8 +2351,9 @@ function updateStatutColor(id, couleur) {
 async function deleteStatutOptimistic(id) {
   const deletedStatut = statuts.find(s => s['ID'] == id);
   const affectedCount = prospects.filter(p => p['Statut'] === deletedStatut?.['Nom']).length;
+  const fallbackLabel = parametres['statut_defaut'] || 'Nouveau';
   const warningMsg = affectedCount > 0
-    ? `Supprimer le statut « ${deletedStatut['Nom']} » ?<br><strong>${affectedCount} prospect${affectedCount > 1 ? 's' : ''}</strong> ${affectedCount > 1 ? 'seront remis' : 'sera remis'} en « Prospect froid ».`
+    ? `Supprimer le statut « ${deletedStatut['Nom']} » ?<br><strong>${affectedCount} prospect${affectedCount > 1 ? 's' : ''}</strong> ${affectedCount > 1 ? 'seront remis' : 'sera remis'} au statut « ${fallbackLabel} ».`
     : `Supprimer le statut « ${deletedStatut?.['Nom']} » ?`;
   const okS = await showConfirm(warningMsg, 'Supprimer un statut', 'Supprimer', true);
   if (!okS) return;
@@ -2330,7 +2364,7 @@ async function deleteStatutOptimistic(id) {
     activeStatutFilter = 'Tous';
     showToast('Filtre réinitialisé (statut supprimé)', '');
   }
-  // Migrer les prospects orphelins vers "Prospect froid"
+  // Migrer les prospects orphelins vers le statut par défaut
   if (deletedStatut && affectedCount > 0) {
     prospects.forEach(p => {
       if (p['Statut'] === deletedStatut['Nom']) {
@@ -2344,8 +2378,6 @@ async function deleteStatutOptimistic(id) {
   showToast('Statut supprimé ✓', 'success');
   api('deleteStatut', { id }).then(r => { if (r?.error) showToast('❌ Erreur suppression : ' + r.error, 'error'); });
 }
-async function deleteStatut(id) { deleteStatutOptimistic(id); }
-
 function openAddTag() { document.getElementById('tag-nom').value = ''; document.getElementById('modal-tag').classList.remove('hidden'); }
 async function saveTag() {
   const nom = document.getElementById('tag-nom').value.trim(); if (!nom) return;
@@ -2382,8 +2414,6 @@ async function deleteTagOptimistic(id) {
   showToast('Tag supprimé ✓', 'success');
   api('deleteTag', { id });
 }
-async function deleteTag(id) { deleteTagOptimistic(id); }
-
 // ─── UTILS ─────────────────────────────────────────────────
 function esc(s) {
   if (!s) return '';
@@ -2404,7 +2434,7 @@ function showConfirm(message, title = 'Confirmer', okLabel = 'Confirmer', danger
     document.getElementById('confirm-message').innerHTML = message;
     const okBtn = document.getElementById('confirm-ok-btn');
     okBtn.textContent = okLabel;
-    okBtn.className = danger ? 'btn-save' : 'btn-save';
+    okBtn.className = 'btn-save';
     okBtn.style.background = danger ? 'var(--danger)' : '';
     document.getElementById('modal-confirm').classList.remove('hidden');
   });
