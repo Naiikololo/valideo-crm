@@ -57,11 +57,11 @@
   #view-dashboard { padding: 28px 32px; }
   .page-title { font-size: 22px; font-weight: 800; color: var(--navy); margin-bottom: 24px; }
   .dash-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin-bottom: 28px; }
-  .dash-card { background: var(--surface); border-radius: 12px; padding: 18px 20px;
+  .dash-card { background: var(--surface); border-radius: 12px; padding: 12px 16px;
     border: 1px solid var(--border); position: relative; overflow: hidden; }
   .dash-card-accent { position: absolute; top: 0; left: 0; width: 4px; height: 100%; }
-  .dash-card-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
-  .dash-card-value { font-size: 30px; font-weight: 800; color: var(--text); }
+  .dash-card-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 4px; }
+  .dash-card-value { font-size: 24px; font-weight: 800; color: var(--text); }
   .dash-card-sub { font-size: 11px; color: var(--text-3); margin-top: 4px; }
 
   /* ── RELANCES SECTION ── */
@@ -174,10 +174,10 @@
   .tag-add { background: var(--bg); border: 1px dashed var(--border); border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; color: var(--text-3); transition: all 0.15s; }
   .tag-add:hover { border-color: var(--navy); color: var(--navy); }
   .notes-perm textarea { width: 100%; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--text); font-family: 'Poppins', sans-serif; resize: vertical; outline: none; min-height: 80px; line-height: 1.6; }
-  .action-bar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
-  .btn-meet { background: var(--navy); color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Poppins', sans-serif; transition: background 0.2s; }
-  .btn-meet:hover { background: var(--navy-light); }
-  .btn-call { background: var(--orange); color: #fff; border: none; border-radius: 8px; padding: 9px 16px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'Poppins', sans-serif; }
+  .action-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+  .btn-meet { background: var(--surface); color: var(--navy); border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Poppins', sans-serif; transition: all 0.15s; }
+  .btn-meet:hover { background: #EFF6FF; border-color: var(--navy); }
+  .btn-call { background: var(--orange); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; font-family: 'Poppins', sans-serif; transition: background 0.15s; flex: 1; }
   .btn-call:hover { background: var(--orange-light); }
   .btn-edit { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 16px; font-size: 13px; cursor: pointer; color: var(--text-2); font-family: 'Poppins', sans-serif; }
   .btn-edit:hover { border-color: var(--navy); color: var(--navy); }
@@ -594,7 +594,6 @@
 
     <!-- DASHBOARD (homepage) -->
     <div id="view-dashboard">
-      <h2 class="page-title">Bonjour Nathan 👋</h2>
       <div class="dash-grid" id="dash-grid"></div>
 
       <div class="section-header">
@@ -611,11 +610,10 @@
         <div class="filter-select-wrap">
           <select class="filter-select" id="filter-offres" onchange="setOffreFilter(this.value)">
             <option value="">Offre</option>
-            <option>Découverte</option>
+            <option>Gratuit</option>
             <option>Starter</option>
             <option>Premium</option>
             <option>Entreprise</option>
-            <option>Sur devis</option>
           </select>
         </div>
         <div class="filter-select-wrap">
@@ -689,6 +687,12 @@
               <span style="font-size:13px;color:var(--text-2);">jours</span>
             </div>
           </div>
+          <div class="modal-field" style="margin-top:12px;">
+            <label class="modal-label">Statut par défaut (nouveau prospect)</label>
+            <select id="param-statut-defaut" class="modal-select" style="max-width:240px;" onchange="saveParam('statut_defaut', this.value)">
+              ${statuts.map(s => `<option value="${esc(s['Nom'])}" ${(parametres['statut_defaut']||'Nouveau') === s['Nom'] ? 'selected' : ''}>${esc(s['Nom'])}</option>`).join('')}
+            </select>
+          </div>
         </div>
 
         <!-- Sécurité -->
@@ -747,7 +751,44 @@
     <input type="hidden" id="edit-prospect-id">
     <div class="modal-field"><label class="modal-label">Nom *</label><input class="modal-input" id="p-nom" placeholder="Jean Dupont"></div>
     <div class="modal-field"><label class="modal-label">Entreprise</label><input class="modal-input" id="p-entreprise" placeholder="Dupont Services"></div>
-    <div class="modal-field"><label class="modal-label">Secteur</label><input class="modal-input" id="p-secteur" placeholder="Plomberie, Électricité..."></div>
+    <div class="modal-field">
+      <label class="modal-label">Secteur</label>
+      <input class="modal-input" id="p-secteur" placeholder="Plomberie, Électricité..." list="secteur-list" autocomplete="off">
+      <datalist id="secteur-list">
+        <option>Plomberie</option>
+        <option>Plomberie – Recherche de fuite</option>
+        <option>Électricité</option>
+        <option>Chauffage – Climatisation</option>
+        <option>Ramonage</option>
+        <option>Sécurité incendie</option>
+        <option>Extinction incendie</option>
+        <option>Maintenance industrielle</option>
+        <option>Maintenance multi-technique</option>
+        <option>SAV itinérant</option>
+        <option>Dépannage électroménager</option>
+        <option>Menuiserie</option>
+        <option>Serrurerie</option>
+        <option>Peinture – Revêtements</option>
+        <option>Maçonnerie</option>
+        <option>Toiture – Couverture</option>
+        <option>Nettoyage industriel</option>
+        <option>Nettoyage de bâtiment</option>
+        <option>Dératisation – Désinsectisation</option>
+        <option>Hygiène et salubrité</option>
+        <option>Assèchement – Déshumidification</option>
+        <option>Sinistre – Après-sinistre</option>
+        <option>Contrôle technique</option>
+        <option>Inspection – Audit</option>
+        <option>Bureaux d'études</option>
+        <option>Conciergerie</option>
+        <option>Jardinage – Espaces verts</option>
+        <option>Piscines – Spas</option>
+        <option>Ascenseurs – Élévateurs</option>
+        <option>Télécommunications</option>
+        <option>Informatique – IT</option>
+        <option>Sécurité – Surveillance</option>
+      </datalist>
+    </div>
     <div class="modal-field"><label class="modal-label">Téléphone</label><input class="modal-input" id="p-telephone" placeholder="06 XX XX XX XX" oninput="this.value=this.value.replace(/[^\d\s+]/g,'')" onblur="this.value=formatPhone(this.value)"></div>
     <div class="modal-field"><label class="modal-label">Email</label><input class="modal-input" id="p-email" placeholder="jean@dupont.fr" type="email"></div>
     <div class="modal-field"><label class="modal-label">Source</label>
@@ -917,11 +958,10 @@
       <label class="modal-label">Offre</label>
       <select class="modal-select" id="client-offre-select">
         <option value="">-- Choisir l'offre --</option>
-        <option>Découverte</option>
+        <option>Gratuit</option>
         <option>Starter</option>
         <option>Premium</option>
         <option>Entreprise</option>
-        <option>Sur devis</option>
       </select>
     </div>
     <div class="modal-btns">
@@ -1050,7 +1090,7 @@ async function loadProspects() {
   const d = await api('getProspects');
   prospects = Array.isArray(d) ? d : [];
   // Migration offres : anciens formats avec prix → noms courts
-  const offreMap = { 'Starter (9€ HT)': 'Starter', 'Premium (30€ HT)': 'Premium', 'Entreprise (99€ HT)': 'Entreprise' };
+  const offreMap = { 'Starter (9€ HT)': 'Starter', 'Premium (30€ HT)': 'Premium', 'Entreprise (99€ HT)': 'Entreprise', 'Découverte': 'Gratuit' };
   prospects.forEach(p => {
     if (p['Offre intéressée'] && offreMap[p['Offre intéressée']]) {
       p['Offre intéressée'] = offreMap[p['Offre intéressée']];
@@ -1512,9 +1552,9 @@ function renderFullProspect() {
         </div>
 
         <div class="action-bar">
-          <button class="btn-meet" onclick="openMeetModal()">📹 Créer Google Meet</button>
-          <button class="btn-call" onclick="toggleAddCall()">+ Ajouter un appel</button>
-          <button class="btn-edit" onclick="openRelanceModal()">📅 Planifier relance</button>
+          <button class="btn-call" onclick="toggleAddCall()">📞 Ajouter un appel</button>
+          <button class="btn-edit" onclick="openRelanceModal()" style="padding:8px 14px;font-size:12px;">📅 Planifier relance</button>
+          <button class="btn-meet" onclick="openMeetModal()">📹 Meet</button>
         </div>
 
         <div id="add-call-form" class="add-call-form hidden">
@@ -1592,7 +1632,9 @@ function openNewProspect() {
   document.getElementById('modal-prospect-title').textContent = 'Nouveau prospect';
   document.getElementById('edit-prospect-id').value = '';
   ['nom','entreprise','secteur','telephone','email'].forEach(f => document.getElementById('p-' + f).value = '');
-  document.getElementById('p-source').value = ''; document.getElementById('p-offre').value = ''; document.getElementById('p-nb').value = '';
+  document.getElementById('p-source').value = '';
+  document.getElementById('p-offre').value = 'Gratuit'; // offre par défaut
+  document.getElementById('p-nb').value = '';
   document.getElementById('modal-prospect').classList.remove('hidden');
 }
 
@@ -1635,7 +1677,11 @@ async function saveProspect() {
     api('updateProspect', Object.assign({ id }, data)).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde : ' + r.error, 'error'); });
   } else {
     const tempId = 'temp_' + Date.now();
-    const newP = {'ID':tempId,'Nom':data.nom,'Entreprise':data.entreprise,'Secteur':data.secteur,'Téléphone':data.telephone,'Email':data.email,'Source':data.source,'Offre intéressée':data.offre,'Nb utilisateurs':data.nbUtilisateurs,'Statut':'Prospect froid','Date relance':'','Dernière activité':today,'Date création':today,'Tags':'','Notes permanentes':''};
+    const defaultStatut = parametres['statut_defaut'] || 'Nouveau';
+    const defaultTags = 'Vous';
+    const defaultOffre = data.offre || 'Gratuit';
+    const newP = {'ID':tempId,'Nom':data.nom,'Entreprise':data.entreprise,'Secteur':data.secteur,'Téléphone':data.telephone,'Email':data.email,'Source':data.source,'Offre intéressée':defaultOffre,'Nb utilisateurs':data.nbUtilisateurs,'Statut':defaultStatut,'Date relance':'','Dernière activité':today,'Date création':today,'Tags':defaultTags,'Notes permanentes':''};
+    data.offre = defaultOffre; data.tags = defaultTags; data.statut = defaultStatut;
     prospects.unshift(newP); selectedProspect = newP;
     closeModal('modal-prospect'); renderProspectsTable(); renderDashboard();
     showToast('Prospect ajouté ✓', 'success');
@@ -2239,8 +2285,9 @@ async function deleteStatutOptimistic(id) {
   if (deletedStatut && affectedCount > 0) {
     prospects.forEach(p => {
       if (p['Statut'] === deletedStatut['Nom']) {
-        p['Statut'] = 'Prospect froid';
-        api('updateProspect', { id: p['ID'], statut: 'Prospect froid' });
+        const fallbackStatut = parametres['statut_defaut'] || 'Nouveau';
+        p['Statut'] = fallbackStatut;
+        api('updateProspect', { id: p['ID'], statut: fallbackStatut });
       }
     });
   }
@@ -2937,7 +2984,7 @@ if (checkSession()) {
   <div class="modal" style="max-width:380px;">
     <div class="modal-title">📦 Offre intéressée</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0;">
-      <button class="offre-option" data-offre="Découverte" onclick="selectOffre('Découverte')" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;background:var(--surface);transition:all 0.15s;">🆓 Découverte</button>
+      <button class="offre-option" data-offre="Gratuit" onclick="selectOffre('Gratuit')" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;background:var(--surface);transition:all 0.15s;">🆓 Gratuit</button>
       <button class="offre-option" data-offre="Starter" onclick="selectOffre('Starter')" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;background:var(--surface);transition:all 0.15s;">⚡ Starter</button>
       <button class="offre-option" data-offre="Premium" onclick="selectOffre('Premium')" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;background:var(--surface);transition:all 0.15s;">🎯 Premium</button>
       <button class="offre-option" data-offre="Entreprise" onclick="selectOffre('Entreprise')" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;background:var(--surface);transition:all 0.15s;">🏢 Entreprise</button>
