@@ -468,6 +468,16 @@
   .tag-chip-dnd { transition: opacity 0.15s, transform 0.15s; cursor: grab; }
   .tag-chip-dnd.dragging { opacity: 0.4; }
   .tag-chip-dnd.drag-over { box-shadow: -3px 0 0 var(--orange); }
+
+  .offre-option.selected {
+    border-color: var(--orange) !important;
+    background: rgba(249,115,22,0.08) !important;
+    color: var(--orange);
+  }
+  .offre-option:hover:not(.selected) {
+    border-color: var(--navy-light);
+    background: var(--bg);
+  }
 </style>
 </head>
 <body>
@@ -1345,15 +1355,30 @@ function renderFullProspect() {
   const _demosFaites = _evts0.filter(e => e['Type']==='meet' && e['Statut']==='Fait').length;
   const _noShows = _evts0.filter(e => e['Type']==='meet' && e['Statut']==='No show').length;
   const _nbUsers = parseInt(p['Nb utilisateurs']) || 1;
-  const _hasOffre = p['Offre intéressée'] || p['Nb utilisateurs'];
-  // Build chips inline (offre + utilisateurs)
+  const _nbRapports = parseInt(p['Nb rapports']) || 0;
+  const _offreVal = p['Offre intéressée'] || '';
+  const _isEntreprise = _offreVal.toLowerCase().includes('entreprise');
+  const _isPremium = _offreVal.toLowerCase().includes('premium');
   const _pid2 = String(p['ID']).replace(/'/g, '');
-  const _offreChip2 = p['Offre intéressée']
-    ? '<span style="background:rgba(26,60,94,0.08);color:#1a3c5e;border:1px solid rgba(26,60,94,0.15);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;">📦 ' + p['Offre intéressée'] + '</span>'
+  const _chipStyle = (bg, color, border) => `background:${bg};color:${color};border:1px solid ${border};border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;`;
+  const _editIcon = '<span style="font-size:9px;opacity:0.55;">✏️</span>';
+  const _offreChip2 = _offreVal
+    ? `<span onclick="openEditOffre('${_pid2}')" style="${_chipStyle('rgba(249,115,22,0.09)','#c2410c','rgba(249,115,22,0.25)')}">📦 ${_offreVal} ${_editIcon}</span>`
+    : `<span onclick="openEditOffre('${_pid2}')" style="background:#f1f5f9;color:#94a3b8;border:1px dashed #cbd5e1;border-radius:20px;padding:4px 12px;font-size:11px;cursor:pointer;">+ Offre</span>`;
+  const _usersChip2 = _isEntreprise
+    ? `<span onclick="openEditNbUsers('${_pid2}')" style="${_chipStyle('rgba(16,185,129,0.08)','#059669','rgba(16,185,129,0.2)')}">👥 ${_nbUsers} util. ${_editIcon}</span>`
     : '';
-  const _usersBtn2 = ['<button onclick="openEditNbUsers(', JSON.stringify(_pid2), ')" style="background:none;border:none;cursor:pointer;font-size:10px;color:#10B981;opacity:0.7;padding:0;line-height:1;">✏️</button>'].join('');
-  const _usersChip2 = '<span style="background:rgba(16,185,129,0.08);color:#10B981;border:1px solid rgba(16,185,129,0.15);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:5px;">👥 ' + _nbUsers + ' util. ' + _usersBtn2 + '</span>';
-  const _chipsHtml = _hasOffre ? '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + _offreChip2 + _usersChip2 + '</div>' : '';
+  // Default display: Starter=15/mois, Premium/Entreprise=Illimités
+  const _isStarter = _offreVal.toLowerCase().includes('starter');
+  const _showRapports = _isStarter || _isPremium || _isEntreprise;
+  let _rapportsLabel;
+  if (_nbRapports > 0) { _rapportsLabel = _nbRapports + ' rapp./mois'; }
+  else if (_isStarter) { _rapportsLabel = '15 rapp./mois'; }
+  else { _rapportsLabel = 'Illimités'; }
+  const _rapportsChip2 = _showRapports
+    ? `<span onclick="openEditNbRapports('${_pid2}')" style="${_chipStyle('rgba(59,130,246,0.08)','#2563eb','rgba(59,130,246,0.2)')}">📄 ${_rapportsLabel} ${_editIcon}</span>`
+    : '';
+  const _chipsHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">${_offreChip2}${_usersChip2}${_rapportsChip2}</div>`;
 
   document.getElementById('prospect-page-content').innerHTML = loadingBarHtml + staleBannerHtml + `
     <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:14px;">
@@ -1907,6 +1932,61 @@ async function confirmRelance() {
   api('updateProspect', { id: p['ID'], dateRelance: date });
 }
 
+// ─── EDIT OFFRE ──────────────────────────────────────────
+let _editOffrePid = null;
+function openEditOffre(pid) {
+  _editOffrePid = pid;
+  const p = prospects.find(pr => pr['ID'] == pid);
+  const current = p?.['Offre intéressée'] || '';
+  document.getElementById('modal-offre-edit').classList.remove('hidden');
+  document.querySelectorAll('#modal-offre-edit .offre-option').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.offre === current);
+  });
+}
+function selectOffre(val) {
+  document.querySelectorAll('#modal-offre-edit .offre-option').forEach(btn => {
+    btn.classList.toggle('selected', btn.dataset.offre === val);
+  });
+}
+function saveOffre() {
+  const selected = document.querySelector('#modal-offre-edit .offre-option.selected');
+  if (!selected) return;
+  const val = selected.dataset.offre;
+  const pid = _editOffrePid;
+  const idx = prospects.findIndex(p => p['ID'] == pid);
+  if (idx !== -1) prospects[idx]['Offre intéressée'] = val;
+  if (selectedProspect?.['ID'] == pid) selectedProspect['Offre intéressée'] = val;
+  closeModal('modal-offre-edit');
+  if (currentView === 'prospect') renderFullProspect();
+  showToast('Offre mise à jour ✓', 'success');
+  api('updateProspect', { id: pid, offreInteressee: val }).then(r => {
+    if (r?.error) showToast('❌ ' + r.error, 'error');
+  });
+}
+
+// ─── EDIT NB RAPPORTS ────────────────────────────────────
+let _editNbRapportsPid = null;
+function openEditNbRapports(pid) {
+  _editNbRapportsPid = pid;
+  const p = prospects.find(pr => pr['ID'] == pid);
+  document.getElementById('nb-rapports-input').value = parseInt(p?.['Nb rapports']) || 0;
+  document.getElementById('modal-nb-rapports').classList.remove('hidden');
+}
+function saveNbRapports() {
+  const val = parseInt(document.getElementById('nb-rapports-input').value) || 0;
+  const pid = _editNbRapportsPid;
+  const idx = prospects.findIndex(p => p['ID'] == pid);
+  if (idx !== -1) prospects[idx]['Nb rapports'] = val;
+  if (selectedProspect?.['ID'] == pid) selectedProspect['Nb rapports'] = val;
+  closeModal('modal-nb-rapports');
+  if (currentView === 'prospect') renderFullProspect();
+  showToast('Nb rapports mis à jour ✓', 'success');
+  api('updateProspect', { id: pid, nbRapports: val }).then(r => {
+    if (r?.error) showToast('❌ ' + r.error, 'error');
+  });
+}
+
+
 // ─── SETTINGS ──────────────────────────────────────────────
 function renderSettings() {
   const sl = document.getElementById('statuts-list');
@@ -2385,9 +2465,11 @@ function showToast(msg, type = '') {
 
 function formatDate(s) {
   if (!s) return '—';
-  s = String(s).substring(0, 10); // normalize, strips time component
+  s = String(s).trim();
+  if (/^\d{1,2}:\d{2}/.test(s)) return '—'; // time value, not a date
+  s = s.substring(0, 10);
   if (s.startsWith('1899') || s.startsWith('1900') || s === '0000-00-00') return '—';
-  if (s.includes('-')) { const [y,m,d] = s.split('-'); return d + '/' + m + '/' + y; }
+  if (s.includes('-')) { const [y,m,d] = s.split('-'); if (!y||!m||!d) return '—'; return d + '/' + m + '/' + y; }
   return s;
 }
 function formatHeure(s) {
@@ -2782,5 +2864,38 @@ if (checkSession()) {
   setTimeout(() => document.getElementById('login-password')?.focus(), 100);
 }
 </script>
+
+<!-- Modal edit offre -->
+<div id="modal-offre-edit" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('modal-offre-edit')">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-title">📦 Offre intéressée</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0;">
+      <button class="offre-option" data-offre="Découverte" onclick="selectOffre('Découverte')" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;background:var(--surface);transition:all 0.15s;">🆓 Découverte</button>
+      <button class="offre-option" data-offre="Starter" onclick="selectOffre('Starter')" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;background:var(--surface);transition:all 0.15s;">⚡ Starter</button>
+      <button class="offre-option" data-offre="Premium" onclick="selectOffre('Premium')" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;background:var(--surface);transition:all 0.15s;">🎯 Premium</button>
+      <button class="offre-option" data-offre="Entreprise" onclick="selectOffre('Entreprise')" style="padding:12px;border:2px solid var(--border);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;background:var(--surface);transition:all 0.15s;">🏢 Entreprise</button>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:8px;">
+      <button class="btn-save" onclick="saveOffre()">Enregistrer</button>
+      <button class="btn-cancel" onclick="closeModal('modal-offre-edit')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal nb rapports -->
+<div id="modal-nb-rapports" class="modal-overlay hidden" onclick="if(event.target===this)closeModal('modal-nb-rapports')">
+  <div class="modal" style="max-width:360px;">
+    <div class="modal-title">📄 Limite de rapports</div>
+    <div style="font-size:13px;color:var(--text-2);margin-bottom:16px;">
+      Entrez <strong>0</strong> pour illimités, ou le nombre de rapports autorisés par mois.
+    </div>
+    <input id="nb-rapports-input" type="number" min="0" max="9999" placeholder="0 = illimités"
+      style="width:100%;padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:15px;font-family:inherit;outline:none;box-sizing:border-box;">
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="btn-save" onclick="saveNbRapports()">Enregistrer</button>
+      <button class="btn-cancel" onclick="closeModal('modal-nb-rapports')">Annuler</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
