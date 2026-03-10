@@ -749,8 +749,8 @@
   <div class="modal">
     <div class="modal-title" id="modal-prospect-title">Nouveau prospect</div>
     <input type="hidden" id="edit-prospect-id">
-    <div class="modal-field"><label class="modal-label">Nom *</label><input class="modal-input" id="p-nom" placeholder="Jean Dupont"></div>
-    <div class="modal-field"><label class="modal-label">Entreprise</label><input class="modal-input" id="p-entreprise" placeholder="Dupont Services"></div>
+    <div class="modal-field"><label class="modal-label">Nom</label><input class="modal-input" id="p-nom" placeholder="Jean Dupont"></div>
+    <div class="modal-field"><label class="modal-label">Entreprise *</label><input class="modal-input" id="p-entreprise" placeholder="Dupont Services"></div>
     <div class="modal-field">
       <label class="modal-label">Secteur</label>
       <input class="modal-input" id="p-secteur" placeholder="Plomberie, Électricité..." list="secteur-list" autocomplete="off">
@@ -1659,7 +1659,8 @@ async function saveProspect() {
     secteur: document.getElementById('p-secteur').value, telephone: formatPhone(document.getElementById('p-telephone').value),
     email: document.getElementById('p-email').value, source: document.getElementById('p-source').value,
     offre: document.getElementById('p-offre').value, nbUtilisateurs: document.getElementById('p-nb').value };
-  if (!data.nom.trim()) { showToast('Le nom est requis', 'error'); return; }
+  if (!data.nom.trim() && !data.entreprise.trim()) { showToast('Le nom ou l\'entreprise est requis', 'error'); return; }
+  if (!data.nom.trim()) data.nom = data.entreprise;
   if (!id) {
     const dup = prospects.find(p => 
       (data.telephone && data.telephone.replace(/\s/g,'').length > 5 && p['Téléphone'] && p['Téléphone'].replace(/\s/g,'') === data.telephone.replace(/\s/g,'')) ||
