@@ -1346,7 +1346,14 @@ function renderFullProspect() {
   const _noShows = _evts0.filter(e => e['Type']==='meet' && e['Statut']==='No show').length;
   const _nbUsers = parseInt(p['Nb utilisateurs']) || 1;
   const _hasOffre = p['Offre intéressée'] || p['Nb utilisateurs'];
-  const _statsHtml = buildStatsHtml(p, _nbAppels, _demosFaites, 0, _nbUsers, _hasOffre);
+  // Build chips inline (offre + utilisateurs)
+  const _pid2 = String(p['ID']).replace(/'/g, '');
+  const _offreChip2 = p['Offre intéressée']
+    ? '<span style="background:rgba(26,60,94,0.08);color:#1a3c5e;border:1px solid rgba(26,60,94,0.15);border-radius:20px;padding:4px 12px;font-size:11px;font-weight:700;">📦 ' + p['Offre intéressée'] + '</span>'
+    : '';
+  const _usersBtn2 = ['<button onclick="openEditNbUsers(', JSON.stringify(_pid2), ')" style="background:none;border:none;cursor:pointer;font-size:10px;color:#10B981;opacity:0.7;padding:0;line-height:1;">✏️</button>'].join('');
+  const _usersChip2 = '<span style="background:rgba(16,185,129,0.08);color:#10B981;border:1px solid rgba(16,185,129,0.15);border-radius:20px;padding:4px 10px;font-size:11px;font-weight:600;display:inline-flex;align-items:center;gap:5px;">👥 ' + _nbUsers + ' util. ' + _usersBtn2 + '</span>';
+  const _chipsHtml = _hasOffre ? '<div style="display:flex;flex-wrap:wrap;gap:6px;">' + _offreChip2 + _usersChip2 + '</div>' : '';
 
   document.getElementById('prospect-page-content').innerHTML = loadingBarHtml + staleBannerHtml + `
     <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:14px;">
