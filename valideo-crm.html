@@ -1,0 +1,1162 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Valideo CRM</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #1A3C5E;
+    --navy-dark: #112840;
+    --navy-light: #234d74;
+    --orange: #F97316;
+    --orange-light: #FB923C;
+    --bg: #F1F5F9;
+    --surface: #FFFFFF;
+    --surface2: #F8FAFC;
+    --border: #E2E8F0;
+    --border-light: #F1F5F9;
+    --text: #1E293B;
+    --text-2: #475569;
+    --text-3: #94A3B8;
+    --sidebar-w: 280px;
+    --header-h: 56px;
+    --success: #10B981;
+    --danger: #EF4444;
+    --warning: #F59E0B;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); height: 100vh; overflow: hidden; display: flex; flex-direction: column; }
+  h1,h2,h3,h4 { font-family: 'Syne', sans-serif; }
+
+  /* HEADER */
+  #header {
+    height: var(--header-h); background: var(--navy); display: flex; align-items: center;
+    justify-content: space-between; padding: 0 20px; flex-shrink: 0; z-index: 100;
+    box-shadow: 0 2px 12px rgba(26,60,94,0.15);
+  }
+  .header-left { display: flex; align-items: center; gap: 10px; }
+  .logo { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 18px; color: var(--orange); letter-spacing: -0.5px; }
+  .header-sep { color: #ffffff30; font-size: 18px; }
+  .header-title { color: #94A3B8; font-size: 13px; font-weight: 500; }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .btn-primary { background: var(--orange); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.2s; display: flex; align-items: center; gap: 6px; }
+  .btn-primary:hover { background: var(--orange-light); }
+  .btn-secondary { background: transparent; color: #94A3B8; border: 1px solid #ffffff20; border-radius: 8px; padding: 7px 14px; font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; }
+  .btn-secondary:hover { background: #ffffff10; color: #fff; }
+
+  /* NAV TABS */
+  #nav { display: flex; align-items: center; gap: 2px; background: #ffffff15; border-radius: 10px; padding: 3px; }
+  .nav-tab { padding: 6px 14px; border-radius: 7px; font-size: 13px; color: #94A3B8; cursor: pointer; transition: all 0.2s; border: none; background: none; font-family: 'DM Sans', sans-serif; white-space: nowrap; }
+  .nav-tab.active { background: var(--orange); color: #fff; font-weight: 600; }
+  .nav-tab:hover:not(.active) { color: #fff; background: #ffffff10; }
+
+  /* LAYOUT */
+  #app { display: flex; flex: 1; overflow: hidden; }
+
+  /* SIDEBAR */
+  #sidebar {
+    width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column; flex-shrink: 0; overflow: hidden;
+  }
+  .sidebar-search { padding: 12px; border-bottom: 1px solid var(--border-light); }
+  .search-input {
+    width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+    padding: 8px 12px 8px 34px; font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif;
+    outline: none; transition: border-color 0.2s;
+  }
+  .search-input:focus { border-color: var(--navy); }
+  .search-wrap { position: relative; }
+  .search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-3); font-size: 14px; pointer-events: none; }
+  .sidebar-filters { padding: 8px 12px; display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--border-light); }
+  .filter-btn { border: 1px solid var(--border); background: var(--bg); color: var(--text-2); border-radius: 20px; padding: 3px 10px; font-size: 11px; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: all 0.2s; white-space: nowrap; }
+  .filter-btn.active { background: var(--navy); color: #fff; border-color: var(--navy); font-weight: 600; }
+  .filter-btn:hover:not(.active) { border-color: var(--navy); color: var(--navy); }
+  .prospect-list { flex: 1; overflow-y: auto; }
+  .prospect-item {
+    padding: 12px 14px; border-bottom: 1px solid var(--border-light); cursor: pointer;
+    border-left: 3px solid transparent; transition: all 0.15s;
+  }
+  .prospect-item:hover { background: var(--bg); }
+  .prospect-item.active { background: #EFF6FF; border-left-color: var(--orange); }
+  .prospect-item-name { font-weight: 600; font-size: 13px; color: var(--text); margin-bottom: 2px; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .prospect-item-company { font-size: 11px; color: var(--text-3); margin-bottom: 4px; }
+  .prospect-item-meta { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 20px; padding: 2px 8px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+  .badge-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+  .relance-badge { font-size: 10px; color: var(--orange); font-weight: 600; }
+  .relance-late { color: var(--danger); }
+  .inactive-badge { font-size: 10px; color: var(--text-3); }
+  .calls-badge { font-size: 10px; color: var(--text-3); }
+  .sommeil-dim { opacity: 0.55; }
+
+  /* MAIN */
+  #main { flex: 1; overflow-y: auto; background: var(--bg); }
+
+  /* DASHBOARD */
+  #view-dashboard { padding: 24px; }
+  .dash-title { font-size: 20px; font-weight: 800; color: var(--navy); margin-bottom: 20px; }
+  .dash-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 24px; }
+  .dash-card {
+    background: var(--surface); border-radius: 12px; padding: 18px 20px;
+    border: 1px solid var(--border); position: relative; overflow: hidden;
+  }
+  .dash-card-accent { position: absolute; top: 0; left: 0; width: 4px; height: 100%; border-radius: 2px 0 0 2px; }
+  .dash-card-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+  .dash-card-value { font-family: 'Syne', sans-serif; font-size: 32px; font-weight: 800; color: var(--text); }
+  .dash-card-sub { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+  .dash-section-title { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+  .relances-list { background: var(--surface); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
+  .relance-row { padding: 12px 16px; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: background 0.15s; }
+  .relance-row:hover { background: var(--bg); }
+  .relance-row:last-child { border-bottom: none; }
+  .relance-info { font-size: 13px; font-weight: 600; color: var(--text); }
+  .relance-company { font-size: 11px; color: var(--text-3); margin-top: 1px; }
+  .relance-date { font-size: 11px; font-weight: 600; color: var(--danger); }
+  .empty-state { text-align: center; padding: 32px; color: var(--text-3); font-size: 13px; }
+
+  /* PROSPECT DETAIL */
+  #view-detail { padding: 24px; max-width: 760px; }
+  .detail-card { background: var(--surface); border-radius: 14px; padding: 22px; margin-bottom: 14px; border: 1px solid var(--border); }
+  .detail-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 16px; }
+  .detail-name { font-size: 22px; font-weight: 800; color: var(--navy); }
+  .detail-company { font-size: 14px; color: var(--text-2); margin-top: 2px; }
+  .detail-contacts { display: flex; gap: 20px; margin-bottom: 16px; flex-wrap: wrap; }
+  .detail-contact { font-size: 13px; color: var(--text-2); display: flex; align-items: center; gap: 5px; }
+  .detail-section-label { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; padding-top: 14px; border-top: 1px solid var(--border-light); }
+  .pipeline-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pipeline-btn { border-radius: 20px; padding: 4px 12px; font-size: 12px; cursor: pointer; font-family: 'DM Sans', sans-serif; border: 1px solid var(--border); background: var(--bg); color: var(--text-2); transition: all 0.2s; font-weight: 500; }
+  .pipeline-btn.active { font-weight: 700; border-width: 2px; }
+  .pipeline-btn:hover:not(.active) { border-color: var(--navy); color: var(--navy); }
+
+  .action-bar { display: flex; gap: 10px; margin-bottom: 14px; flex-wrap: wrap; }
+  .btn-meet { background: var(--navy); color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; transition: background 0.2s; display: flex; align-items: center; gap: 6px; }
+  .btn-meet:hover { background: var(--navy-light); }
+  .btn-meet.success { background: var(--success); }
+  .btn-call { background: var(--orange); color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; display: flex; align-items: center; gap: 6px; }
+  .btn-call:hover { background: var(--orange-light); }
+  .btn-edit { background: var(--bg); color: var(--text-2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .btn-edit:hover { border-color: var(--navy); color: var(--navy); }
+
+  /* NOTES PERMANENTES */
+  .notes-perm { background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 10px; padding: 12px 14px; }
+  .notes-perm textarea { width: 100%; background: none; border: none; outline: none; font-family: 'DM Sans', sans-serif; font-size: 13px; color: var(--text); resize: none; min-height: 60px; }
+
+  /* TAGS */
+  .tags-wrap { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .tag { display: inline-flex; align-items: center; gap: 4px; border-radius: 20px; padding: 3px 10px; font-size: 11px; font-weight: 600; }
+  .tag-remove { cursor: pointer; opacity: 0.6; font-size: 12px; }
+  .tag-remove:hover { opacity: 1; }
+  .tag-add { background: var(--bg); border: 1px dashed var(--border); color: var(--text-3); border-radius: 20px; padding: 3px 10px; font-size: 11px; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+  .tag-add:hover { border-color: var(--navy); color: var(--navy); }
+
+  /* APPELS */
+  .calls-card { background: var(--surface); border-radius: 14px; padding: 20px; border: 1px solid var(--border); }
+  .calls-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .calls-title { font-size: 14px; font-weight: 700; color: var(--text); }
+  .call-entry { display: flex; gap: 12px; padding-bottom: 16px; }
+  .call-timeline { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+  .call-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--orange); margin-top: 4px; flex-shrink: 0; }
+  .call-line { width: 2px; flex: 1; background: var(--border); margin-top: 4px; }
+  .call-body { flex: 1; background: var(--bg); border-radius: 10px; padding: 10px 14px; border: 1px solid var(--border); }
+  .call-meta { display: flex; justify-content: space-between; margin-bottom: 6px; align-items: center; }
+  .call-date { font-size: 12px; font-weight: 700; color: var(--text-2); }
+  .call-actions-mini { display: flex; gap: 6px; }
+  .btn-mini { background: none; border: none; color: var(--text-3); cursor: pointer; font-size: 12px; padding: 2px 6px; border-radius: 4px; transition: all 0.15s; }
+  .btn-mini:hover { background: var(--border); color: var(--text); }
+  .call-note { font-size: 13px; color: var(--text-2); line-height: 1.6; }
+  .call-note-input { width: 100%; background: var(--surface); border: 1px solid var(--navy); border-radius: 6px; padding: 6px 10px; font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif; resize: vertical; outline: none; }
+
+  /* FORM APPEL */
+  .add-call-form { background: var(--surface); border-radius: 14px; padding: 16px; margin-bottom: 14px; border: 2px solid var(--orange); }
+  .form-title { font-size: 13px; font-weight: 700; color: var(--orange); margin-bottom: 12px; }
+  .form-row { display: flex; gap: 10px; margin-bottom: 10px; }
+  .form-input { flex: 1; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; }
+  .form-input:focus { border-color: var(--navy); }
+  .form-textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif; resize: vertical; outline: none; transition: border-color 0.2s; min-height: 80px; }
+  .form-textarea:focus { border-color: var(--navy); }
+  .form-btns { display: flex; gap: 8px; }
+  .btn-save { background: var(--orange); color: #fff; border: none; border-radius: 8px; padding: 8px 18px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .btn-cancel { background: var(--bg); color: var(--text-2); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 13px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+
+  /* MODAL */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(2px); }
+  .modal { background: var(--surface); border-radius: 16px; padding: 28px; width: 460px; max-width: 95vw; border: 1px solid var(--border); box-shadow: 0 20px 60px rgba(0,0,0,0.15); max-height: 90vh; overflow-y: auto; }
+  .modal-title { font-size: 16px; font-weight: 800; color: var(--navy); margin-bottom: 20px; font-family: 'Syne', sans-serif; }
+  .modal-field { margin-bottom: 12px; }
+  .modal-label { font-size: 12px; font-weight: 600; color: var(--text-2); margin-bottom: 5px; display: block; }
+  .modal-input { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; }
+  .modal-input:focus { border-color: var(--navy); }
+  .modal-select { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; cursor: pointer; }
+  .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+  .modal-btns .btn-save { flex: 1; padding: 10px; }
+
+  /* MEET MODAL */
+  .meet-time-row { display: flex; gap: 10px; }
+
+  /* KANBAN */
+  #view-kanban { padding: 20px; overflow-x: auto; height: 100%; }
+  .kanban-board { display: flex; gap: 14px; min-width: max-content; height: calc(100% - 40px); }
+  .kanban-col { width: 240px; background: var(--surface); border-radius: 12px; border: 1px solid var(--border); display: flex; flex-direction: column; overflow: hidden; flex-shrink: 0; }
+  .kanban-col-header { padding: 12px 14px; border-bottom: 1px solid var(--border-light); display: flex; justify-content: space-between; align-items: center; }
+  .kanban-col-name { font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+  .kanban-col-count { font-size: 11px; background: var(--bg); border-radius: 20px; padding: 1px 8px; color: var(--text-2); }
+  .kanban-cards { flex: 1; overflow-y: auto; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .kanban-card { background: var(--bg); border-radius: 8px; padding: 10px 12px; border: 1px solid var(--border); cursor: pointer; transition: all 0.15s; }
+  .kanban-card:hover { border-color: var(--navy); box-shadow: 0 2px 8px rgba(26,60,94,0.1); transform: translateY(-1px); }
+  .kanban-card-name { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 3px; }
+  .kanban-card-company { font-size: 11px; color: var(--text-3); }
+  .kanban-card-meta { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* SETTINGS */
+  #view-settings { padding: 24px; max-width: 700px; }
+  .settings-section { background: var(--surface); border-radius: 14px; padding: 20px; margin-bottom: 16px; border: 1px solid var(--border); }
+  .settings-title { font-size: 15px; font-weight: 700; color: var(--navy); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .settings-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-light); }
+  .settings-row:last-child { border-bottom: none; }
+  .settings-row-label { font-size: 13px; font-weight: 600; color: var(--text); }
+  .settings-row-sub { font-size: 11px; color: var(--text-3); margin-top: 2px; }
+  .status-color-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+  .btn-danger { background: #FEF2F2; color: var(--danger); border: 1px solid #FECACA; border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; font-family: 'DM Sans', sans-serif; }
+  .btn-icon { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 5px 10px; font-size: 12px; cursor: pointer; color: var(--text-2); font-family: 'DM Sans', sans-serif; }
+  .param-textarea { width: 100%; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif; resize: vertical; outline: none; min-height: 80px; transition: border-color 0.2s; }
+  .param-textarea:focus { border-color: var(--navy); }
+
+  /* LOADING */
+  .loading { display: flex; align-items: center; justify-content: center; padding: 40px; gap: 10px; color: var(--text-3); font-size: 13px; }
+  .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--navy); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* TOAST */
+  #toast { position: fixed; bottom: 24px; right: 24px; background: var(--navy); color: #fff; border-radius: 10px; padding: 12px 18px; font-size: 13px; font-weight: 500; z-index: 9999; transform: translateY(80px); opacity: 0; transition: all 0.3s; box-shadow: 0 8px 24px rgba(0,0,0,0.15); }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.error { background: var(--danger); }
+  #toast.success { background: var(--success); }
+
+  /* MOTIF PERTE */
+  .motif-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1001; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div id="header">
+  <div class="header-left">
+    <span class="logo">VALIDEO</span>
+    <span class="header-sep">/</span>
+    <span class="header-title">CRM Commercial</span>
+  </div>
+  <div id="nav">
+    <button class="nav-tab active" onclick="switchView('dashboard')">📊 Dashboard</button>
+    <button class="nav-tab" onclick="switchView('list')">☰ Liste</button>
+    <button class="nav-tab" onclick="switchView('kanban')">⠿ Kanban</button>
+    <button class="nav-tab" onclick="switchView('settings')">⚙️ Paramètres</button>
+  </div>
+  <div class="header-right">
+    <button class="btn-primary" onclick="openNewProspect()">+ Nouveau prospect</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div class="sidebar-search">
+      <div class="search-wrap">
+        <span class="search-icon">🔍</span>
+        <input class="search-input" type="text" placeholder="Rechercher..." id="search-input" oninput="filterProspects()">
+      </div>
+    </div>
+    <div class="sidebar-filters" id="sidebar-filters"></div>
+    <div class="prospect-list" id="prospect-list"></div>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+    <!-- DASHBOARD -->
+    <div id="view-dashboard">
+      <h2 class="dash-title">Bonjour Nathan 👋</h2>
+      <div class="dash-grid" id="dash-grid">
+        <div class="loading"><div class="spinner"></div> Chargement...</div>
+      </div>
+      <div class="dash-section-title">⚠️ Relances en retard</div>
+      <div class="relances-list" id="relances-list"><div class="empty-state">Aucune relance en retard</div></div>
+    </div>
+
+    <!-- LIST + DETAIL -->
+    <div id="view-list" class="hidden">
+      <div id="view-detail" class="hidden"></div>
+      <div id="view-empty" style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text-3);font-size:14px;">
+        Sélectionne un prospect dans la liste
+      </div>
+    </div>
+
+    <!-- KANBAN -->
+    <div id="view-kanban" class="hidden">
+      <div class="kanban-board" id="kanban-board"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="view-settings" class="hidden">
+      <h2 style="font-size:20px;font-weight:800;color:var(--navy);margin-bottom:20px;">Paramètres</h2>
+
+      <div class="settings-section">
+        <div class="settings-title">🏷️ Statuts pipeline</div>
+        <div id="statuts-list"></div>
+        <button class="btn-primary" style="margin-top:12px;" onclick="openAddStatut()">+ Ajouter un statut</button>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">🔖 Tags</div>
+        <div id="tags-list"></div>
+        <button class="btn-primary" style="margin-top:12px;" onclick="openAddTag()">+ Ajouter un tag</button>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">📹 Modèle Google Meet</div>
+        <div class="modal-field">
+          <label class="modal-label">Titre (variables : {entreprise}, {nom})</label>
+          <input class="modal-input" id="param-meet-titre" oninput="saveParam('meet_titre', this.value)">
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Description</label>
+          <textarea class="param-textarea" id="param-meet-desc" oninput="saveParam('meet_description', this.value)"></textarea>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">📅 Modèle Relance Calendar</div>
+        <div class="modal-field">
+          <label class="modal-label">Titre (variables : {nom}, {entreprise})</label>
+          <input class="modal-input" id="param-relance-titre" oninput="saveParam('relance_titre', this.value)">
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Description (variables : {date_dernier_appel}, {statut}, {derniere_note})</label>
+          <textarea class="param-textarea" id="param-relance-desc" oninput="saveParam('relance_description', this.value)"></textarea>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="settings-title">⏱️ Inactivité</div>
+        <div class="modal-field">
+          <label class="modal-label">Signaler un prospect inactif après (jours)</label>
+          <input class="modal-input" type="number" id="param-inactif" style="width:120px;" oninput="saveParam('inactivite_jours', this.value)">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODALS -->
+<div id="modal-prospect" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title" id="modal-prospect-title">Nouveau prospect</div>
+    <input type="hidden" id="edit-prospect-id">
+    <div class="modal-field"><label class="modal-label">Nom *</label><input class="modal-input" id="p-nom" placeholder="Jean Dupont"></div>
+    <div class="modal-field"><label class="modal-label">Entreprise</label><input class="modal-input" id="p-entreprise" placeholder="Dupont Services"></div>
+    <div class="modal-field"><label class="modal-label">Secteur</label><input class="modal-input" id="p-secteur" placeholder="Plomberie, Électricité..."></div>
+    <div class="modal-field"><label class="modal-label">Téléphone</label><input class="modal-input" id="p-telephone" placeholder="06 XX XX XX XX"></div>
+    <div class="modal-field"><label class="modal-label">Email</label><input class="modal-input" id="p-email" placeholder="jean@dupont.fr" type="email"></div>
+    <div class="modal-field"><label class="modal-label">Source</label>
+      <select class="modal-select" id="p-source">
+        <option value="">-- Choisir --</option>
+        <option>LinkedIn</option><option>Bouche à oreille</option><option>Site web</option>
+        <option>Salon / Événement</option><option>Appel entrant</option><option>Autre</option>
+      </select>
+    </div>
+    <div class="modal-field"><label class="modal-label">Offre intéressée</label>
+      <select class="modal-select" id="p-offre">
+        <option value="">-- Choisir --</option>
+        <option>Starter (9€ HT)</option><option>Premium (30€ HT)</option><option>Entreprise (99€ HT)</option><option>Sur devis</option>
+      </select>
+    </div>
+    <div class="modal-field"><label class="modal-label">Nb utilisateurs estimés</label><input class="modal-input" id="p-nb" placeholder="1, 3, 10..." type="number"></div>
+    <div class="modal-btns">
+      <button class="btn-save" onclick="saveProspect()">Enregistrer</button>
+      <button class="btn-cancel" onclick="closeModal('modal-prospect')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-meet" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">📹 Créer Google Meet</div>
+    <div class="modal-field"><label class="modal-label">Date</label><input class="modal-input" id="meet-date" type="date"></div>
+    <div class="modal-field"><label class="modal-label">Heure</label><input class="modal-input" id="meet-heure" type="time" value="10:00"></div>
+    <div class="modal-btns">
+      <button class="btn-save" onclick="confirmMeet()">Créer et envoyer l'invitation</button>
+      <button class="btn-cancel" onclick="closeModal('modal-meet')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-relance" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">📅 Planifier une relance</div>
+    <div class="modal-field"><label class="modal-label">Date de relance</label><input class="modal-input" id="relance-date" type="date"></div>
+    <div class="modal-btns">
+      <button class="btn-save" onclick="confirmRelance()">Créer l'événement Calendar</button>
+      <button class="btn-cancel" onclick="closeModal('modal-relance')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-motif" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Motif de perte</div>
+    <div class="modal-field"><label class="modal-label">Pourquoi ce prospect est perdu ?</label>
+      <select class="modal-select" id="motif-select">
+        <option>Prix trop élevé</option><option>Concurrent choisi</option><option>Pas convaincu</option>
+        <option>Mauvais timing</option><option>Ne répond plus</option><option>Autre</option>
+      </select>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-save" onclick="confirmMotif()">Confirmer</button>
+      <button class="btn-cancel" onclick="closeModal('modal-motif')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-statut" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Nouveau statut</div>
+    <div class="modal-field"><label class="modal-label">Nom</label><input class="modal-input" id="statut-nom" placeholder="Ex: En attente devis"></div>
+    <div class="modal-field"><label class="modal-label">Couleur</label><input class="modal-input" id="statut-couleur" type="color" value="#1A3C5E" style="height:40px;cursor:pointer;"></div>
+    <div class="modal-btns">
+      <button class="btn-save" onclick="saveStatut()">Ajouter</button>
+      <button class="btn-cancel" onclick="closeModal('modal-statut')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-tag" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Nouveau tag</div>
+    <div class="modal-field"><label class="modal-label">Nom</label><input class="modal-input" id="tag-nom" placeholder="Ex: Chaud, Gros compte..."></div>
+    <div class="modal-field"><label class="modal-label">Couleur</label><input class="modal-input" id="tag-couleur" type="color" value="#F97316" style="height:40px;cursor:pointer;"></div>
+    <div class="modal-btns">
+      <button class="btn-save" onclick="saveTag()">Ajouter</button>
+      <button class="btn-cancel" onclick="closeModal('modal-tag')">Annuler</button>
+    </div>
+  </div>
+</div>
+
+<div id="modal-tag-select" class="modal-overlay hidden">
+  <div class="modal">
+    <div class="modal-title">Ajouter un tag</div>
+    <div id="tag-select-list" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;"></div>
+    <button class="btn-cancel" onclick="closeModal('modal-tag-select')">Fermer</button>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+const API = 'https://script.google.com/a/macros/valideo.app/s/AKfycbxUgS2ST_9o_8K0Z26O4nC2WakLsF7Cd1a0PKqDAP39v1xRDXutPzJ8I2o-_rfn3jjz/exec';
+
+let prospects = [], statuts = [], tags = [], parametres = {}, appelsCache = {};
+let selectedProspect = null, currentView = 'dashboard';
+let pendingMotifStatus = null, pendingProspectId = null;
+
+// ─── API ───────────────────────────────────────────────────
+async function api(action, data = {}) {
+  try {
+    const res = await fetch(API, {
+      method: 'POST',
+      body: JSON.stringify({ action, ...data })
+    });
+    return await res.json();
+  } catch(e) {
+    // Fallback GET pour CORS
+    const url = API + '?action=' + action + '&' + new URLSearchParams(data);
+    const res = await fetch(url);
+    return await res.json();
+  }
+}
+
+// ─── INIT ──────────────────────────────────────────────────
+async function init() {
+  showToast('Chargement...', '');
+  await Promise.all([loadStatuts(), loadTags(), loadParametres()]);
+  await loadProspects();
+  renderDashboard();
+  renderSidebarFilters();
+  renderProspectList();
+  renderKanban();
+  renderSettings();
+  hideToast();
+}
+
+async function loadProspects() {
+  const data = await api('getProspects');
+  prospects = Array.isArray(data) ? data : [];
+}
+async function loadStatuts() {
+  const data = await api('getStatuts');
+  statuts = Array.isArray(data) ? data : [];
+}
+async function loadTags() {
+  const data = await api('getTags');
+  tags = Array.isArray(data) ? data : [];
+}
+async function loadParametres() {
+  const data = await api('getParametres');
+  parametres = data || {};
+}
+async function loadAppels(prospectId) {
+  const data = await api('getAppels', { prospectId });
+  appelsCache[prospectId] = Array.isArray(data) ? data : [];
+  return appelsCache[prospectId];
+}
+
+// ─── VIEWS ─────────────────────────────────────────────────
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab')[['dashboard','list','kanban','settings'].indexOf(view)]?.classList.add('active');
+  document.getElementById('sidebar').style.display = ['list','dashboard'].includes(view) ? 'flex' : 'none';
+  document.getElementById('view-dashboard').classList.toggle('hidden', view !== 'dashboard');
+  document.getElementById('view-list').classList.toggle('hidden', view !== 'list');
+  document.getElementById('view-kanban').classList.toggle('hidden', view !== 'kanban');
+  document.getElementById('view-settings').classList.toggle('hidden', view !== 'settings');
+  if (view === 'kanban') renderKanban();
+}
+
+// ─── SIDEBAR ───────────────────────────────────────────────
+let activeFilter = 'Tous';
+function renderSidebarFilters() {
+  const el = document.getElementById('sidebar-filters');
+  const filters = ['Tous', ...statuts.map(s => s['Nom'])];
+  el.innerHTML = filters.map(f =>
+    `<button class="filter-btn ${f === activeFilter ? 'active' : ''}" onclick="setFilter('${f}')">${f}</button>`
+  ).join('');
+}
+
+function setFilter(f) {
+  activeFilter = f;
+  renderSidebarFilters();
+  renderProspectList();
+}
+
+function filterProspects() { renderProspectList(); }
+
+function renderProspectList() {
+  const q = document.getElementById('search-input').value.toLowerCase();
+  const el = document.getElementById('prospect-list');
+  const today = new Date().toISOString().split('T')[0];
+  const inactifJours = parseInt(parametres['inactivite_jours'] || 30);
+
+  let list = prospects.filter(p => {
+    if (activeFilter !== 'Tous' && p['Statut'] !== activeFilter) return false;
+    if (!q) return true;
+    return ['Nom','Entreprise','Secteur','Téléphone','Email','Source'].some(k =>
+      String(p[k] || '').toLowerCase().includes(q)
+    );
+  });
+
+  // Relances en retard en premier
+  list.sort((a, b) => {
+    const aLate = a['Date relance'] && a['Date relance'] < today && !['Client','Perdu','Mise en sommeil'].includes(a['Statut']);
+    const bLate = b['Date relance'] && b['Date relance'] < today && !['Client','Perdu','Mise en sommeil'].includes(b['Statut']);
+    return (bLate ? 1 : 0) - (aLate ? 1 : 0);
+  });
+
+  if (!list.length) { el.innerHTML = '<div class="empty-state">Aucun prospect</div>'; return; }
+
+  el.innerHTML = list.map(p => {
+    const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8', Nom: p['Statut'] };
+    const isLate = p['Date relance'] && p['Date relance'] < today && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']);
+    const isSommeil = p['Statut'] === 'Mise en sommeil';
+    const lastActivity = p['Dernière activité'] ? new Date(p['Dernière activité']) : null;
+    const limitDate = new Date(); limitDate.setDate(limitDate.getDate() - inactifJours);
+    const isInactive = lastActivity && lastActivity < limitDate && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']);
+    const prospectTags = p['Tags'] ? p['Tags'].split(',').filter(Boolean) : [];
+
+    return `<div class="prospect-item ${selectedProspect?.ID === p['ID'] ? 'active' : ''} ${isSommeil ? 'sommeil-dim' : ''}" onclick="selectProspect('${p['ID']}')">
+      <div class="prospect-item-name">
+        <span>${p['Nom'] || '—'}</span>
+        <span class="badge" style="background:${statut.Couleur}22;color:${statut.Couleur};border:1px solid ${statut.Couleur}44;">
+          <span class="badge-dot" style="background:${statut.Couleur}"></span>${statut.Nom}
+        </span>
+      </div>
+      <div class="prospect-item-company">${p['Entreprise'] || ''}</div>
+      <div class="prospect-item-meta">
+        ${isLate ? `<span class="relance-badge relance-late">⚠️ Relance dépassée</span>` : p['Date relance'] ? `<span class="relance-badge">📅 ${p['Date relance']}</span>` : ''}
+        ${isInactive ? `<span class="inactive-badge">💤 Inactif</span>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ─── PROSPECT DETAIL ───────────────────────────────────────
+async function selectProspect(id) {
+  selectedProspect = prospects.find(p => p['ID'] == id);
+  if (!selectedProspect) return;
+  if (currentView !== 'list') switchView('list');
+  document.getElementById('view-empty').classList.add('hidden');
+  document.getElementById('view-detail').classList.remove('hidden');
+  renderProspectList();
+  await renderDetail();
+}
+
+async function renderDetail() {
+  const p = selectedProspect;
+  const appels = await loadAppels(p['ID']);
+  const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8' };
+  const today = new Date().toISOString().split('T')[0];
+  const prospectTags = p['Tags'] ? p['Tags'].split(',').filter(Boolean) : [];
+
+  const el = document.getElementById('view-detail');
+  el.innerHTML = `
+    <div class="detail-card">
+      <div class="detail-header">
+        <div>
+          <div class="detail-name">${p['Nom'] || '—'}</div>
+          <div class="detail-company">${p['Entreprise'] || ''} ${p['Secteur'] ? '· ' + p['Secteur'] : ''}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span class="badge" style="background:${statut.Couleur}22;color:${statut.Couleur};border:1px solid ${statut.Couleur}44;font-size:12px;padding:4px 12px;">
+            <span class="badge-dot" style="background:${statut.Couleur}"></span>${p['Statut']}
+          </span>
+          <button class="btn-icon" onclick="openEditProspect()">✏️ Modifier</button>
+        </div>
+      </div>
+
+      <div class="detail-contacts">
+        ${p['Téléphone'] ? `<div class="detail-contact">📞 <a href="tel:${p['Téléphone']}" style="color:inherit;text-decoration:none;">${p['Téléphone']}</a></div>` : ''}
+        ${p['Email'] ? `<div class="detail-contact">✉️ <a href="mailto:${p['Email']}" style="color:inherit;text-decoration:none;">${p['Email']}</a></div>` : ''}
+        ${p['Source'] ? `<div class="detail-contact">🔗 ${p['Source']}</div>` : ''}
+        ${p['Offre intéressée'] ? `<div class="detail-contact">💼 ${p['Offre intéressée']}</div>` : ''}
+        ${p['Nb utilisateurs'] ? `<div class="detail-contact">👥 ${p['Nb utilisateurs']} utilisateur(s)</div>` : ''}
+      </div>
+
+      <div class="detail-section-label">Pipeline</div>
+      <div class="pipeline-btns">
+        ${statuts.map(s => `
+          <button class="pipeline-btn ${p['Statut'] === s['Nom'] ? 'active' : ''}"
+            style="${p['Statut'] === s['Nom'] ? `border-color:${s['Couleur']};color:${s['Couleur']};background:${s['Couleur']}15;` : ''}"
+            onclick="changeStatut('${s['Nom']}')">
+            ${s['Nom']}
+          </button>`).join('')}
+      </div>
+
+      <div class="detail-section-label">Tags</div>
+      <div class="tags-wrap" id="tags-wrap">
+        ${prospectTags.map(t => {
+          const tagObj = tags.find(tg => tg['Nom'] === t);
+          const color = tagObj?.Couleur || '#94A3B8';
+          return `<span class="tag" style="background:${color}22;color:${color};border:1px solid ${color}44;">
+            ${t} <span class="tag-remove" onclick="removeTag('${t}')">×</span>
+          </span>`;
+        }).join('')}
+        <span class="tag-add" onclick="openTagSelect()">+ Tag</span>
+      </div>
+
+      <div class="detail-section-label">Notes permanentes</div>
+      <div class="notes-perm">
+        <textarea id="notes-perm-input" placeholder="Infos clés sur ce prospect (nb techniciens, contexte, timing...)..."
+          onblur="saveNotesPerm()">${p['Notes permanentes'] || ''}</textarea>
+      </div>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn-meet" onclick="openMeetModal()">📹 Créer Google Meet</button>
+      <button class="btn-call" onclick="toggleAddCall()">+ Ajouter un appel</button>
+      <button class="btn-edit" onclick="openRelanceModal()">📅 Planifier relance</button>
+      ${p['Date relance'] ? `<span style="font-size:12px;color:${p['Date relance'] < today ? 'var(--danger)' : 'var(--orange)'};align-self:center;">📅 ${p['Date relance']}</span>` : ''}
+    </div>
+
+    <div id="add-call-form" class="add-call-form hidden">
+      <div class="form-title">Nouvel appel</div>
+      <div class="form-row">
+        <input class="form-input" type="date" id="call-date" value="${today}">
+        <input class="form-input" type="time" id="call-heure" value="${new Date().toTimeString().slice(0,5)}">
+      </div>
+      <textarea class="form-textarea" id="call-note" placeholder="Notes de l'appel..."></textarea>
+      <div class="form-btns" style="margin-top:10px;">
+        <button class="btn-save" onclick="saveCall()">Enregistrer</button>
+        <button class="btn-cancel" onclick="toggleAddCall()">Annuler</button>
+      </div>
+    </div>
+
+    <div class="calls-card">
+      <div class="calls-header">
+        <div class="calls-title">Historique des appels <span style="color:var(--text-3);font-weight:400;font-size:12px;">(${appels.length})</span></div>
+      </div>
+      ${appels.length === 0 ? '<div class="empty-state">Aucun appel enregistré</div>' :
+        appels.map((a, i) => `
+          <div class="call-entry" id="call-${a['ID']}">
+            <div class="call-timeline">
+              <div class="call-dot"></div>
+              ${i < appels.length - 1 ? '<div class="call-line"></div>' : ''}
+            </div>
+            <div class="call-body">
+              <div class="call-meta">
+                <div style="display:flex;gap:8px;align-items:center;">
+                  <input class="call-date" type="date" value="${a['Date'] || ''}" id="call-date-${a['ID']}"
+                    style="border:none;background:none;font-size:12px;font-weight:700;color:var(--text-2);font-family:'DM Sans',sans-serif;cursor:pointer;"
+                    onchange="updateAppel('${a['ID']}', 'date')">
+                  <input type="time" value="${a['Heure'] || ''}" id="call-heure-${a['ID']}"
+                    style="border:none;background:none;font-size:11px;color:var(--text-3);font-family:'DM Sans',sans-serif;cursor:pointer;"
+                    onchange="updateAppel('${a['ID']}', 'heure')">
+                </div>
+                <div class="call-actions-mini">
+                  <button class="btn-mini" onclick="toggleEditCall('${a['ID']}')">✏️</button>
+                  <button class="btn-mini" style="color:var(--danger);" onclick="deleteCall('${a['ID']}')">🗑️</button>
+                </div>
+              </div>
+              <div class="call-note" id="call-note-view-${a['ID']}">${a['Note'] || ''}</div>
+              <textarea class="call-note-input hidden" id="call-note-edit-${a['ID']}"
+                onblur="saveEditCall('${a['ID']}')">${a['Note'] || ''}</textarea>
+            </div>
+          </div>`).join('')}
+    </div>
+  `;
+}
+
+// ─── ACTIONS PROSPECT ──────────────────────────────────────
+function openNewProspect() {
+  document.getElementById('modal-prospect-title').textContent = 'Nouveau prospect';
+  document.getElementById('edit-prospect-id').value = '';
+  ['nom','entreprise','secteur','telephone','email'].forEach(f => document.getElementById('p-' + f).value = '');
+  document.getElementById('p-source').value = '';
+  document.getElementById('p-offre').value = '';
+  document.getElementById('p-nb').value = '';
+  document.getElementById('modal-prospect').classList.remove('hidden');
+}
+
+function openEditProspect() {
+  const p = selectedProspect;
+  document.getElementById('modal-prospect-title').textContent = 'Modifier le prospect';
+  document.getElementById('edit-prospect-id').value = p['ID'];
+  document.getElementById('p-nom').value = p['Nom'] || '';
+  document.getElementById('p-entreprise').value = p['Entreprise'] || '';
+  document.getElementById('p-secteur').value = p['Secteur'] || '';
+  document.getElementById('p-telephone').value = p['Téléphone'] || '';
+  document.getElementById('p-email').value = p['Email'] || '';
+  document.getElementById('p-source').value = p['Source'] || '';
+  document.getElementById('p-offre').value = p['Offre intéressée'] || '';
+  document.getElementById('p-nb').value = p['Nb utilisateurs'] || '';
+  document.getElementById('modal-prospect').classList.remove('hidden');
+}
+
+async function saveProspect() {
+  const id = document.getElementById('edit-prospect-id').value;
+  const data = {
+    nom: document.getElementById('p-nom').value,
+    entreprise: document.getElementById('p-entreprise').value,
+    secteur: document.getElementById('p-secteur').value,
+    telephone: document.getElementById('p-telephone').value,
+    email: document.getElementById('p-email').value,
+    source: document.getElementById('p-source').value,
+    offre: document.getElementById('p-offre').value,
+    nbUtilisateurs: document.getElementById('p-nb').value,
+  };
+  if (!data.nom.trim()) { showToast('Le nom est requis', 'error'); return; }
+
+  // Duplicate check
+  if (!id) {
+    const dup = prospects.find(p => p['Téléphone'] === data.telephone || (data.email && p['Email'] === data.email));
+    if (dup) { if (!confirm(`Un prospect similaire existe déjà (${dup['Nom']}). Continuer ?`)) return; }
+  }
+
+  showToast('Enregistrement...', '');
+  const result = id ? await api('updateProspect', { id, ...data }) : await api('addProspect', data);
+  if (result.error) { showToast(result.error, 'error'); return; }
+
+  await loadProspects();
+  closeModal('modal-prospect');
+  renderProspectList();
+  if (id && selectedProspect?.ID == id) {
+    selectedProspect = prospects.find(p => p['ID'] == id);
+    await renderDetail();
+  } else if (!id) {
+    await selectProspect(result.id);
+  }
+  showToast('Prospect enregistré ✓', 'success');
+}
+
+async function changeStatut(statut) {
+  if (statut === 'Perdu') {
+    pendingMotifStatus = statut;
+    pendingProspectId = selectedProspect['ID'];
+    document.getElementById('modal-motif').classList.remove('hidden');
+    return;
+  }
+  await api('updateProspect', { id: selectedProspect['ID'], statut });
+  await loadProspects();
+  selectedProspect = prospects.find(p => p['ID'] == selectedProspect['ID']);
+  renderProspectList();
+  await renderDetail();
+  renderKanban();
+}
+
+async function confirmMotif() {
+  const motif = document.getElementById('motif-select').value;
+  await api('updateProspect', { id: pendingProspectId, statut: pendingMotifStatus, motifPerte: motif });
+  await loadProspects();
+  selectedProspect = prospects.find(p => p['ID'] == pendingProspectId);
+  closeModal('modal-motif');
+  renderProspectList();
+  await renderDetail();
+  renderKanban();
+  showToast('Statut mis à jour ✓', 'success');
+}
+
+async function saveNotesPerm() {
+  const val = document.getElementById('notes-perm-input')?.value;
+  if (val === undefined) return;
+  await api('updateProspect', { id: selectedProspect['ID'], notesPermanentes: val });
+  selectedProspect['Notes permanentes'] = val;
+  showToast('Notes sauvegardées ✓', 'success');
+}
+
+// ─── TAGS ──────────────────────────────────────────────────
+function openTagSelect() {
+  const prospectTags = selectedProspect['Tags'] ? selectedProspect['Tags'].split(',').filter(Boolean) : [];
+  const el = document.getElementById('tag-select-list');
+  el.innerHTML = tags.map(t => {
+    const active = prospectTags.includes(t['Nom']);
+    return `<span class="tag" style="background:${t['Couleur']}${active?'':'22'};color:${active?'#fff':t['Couleur']};border:1px solid ${t['Couleur']};cursor:pointer;"
+      onclick="toggleTag('${t['Nom']}')">${t['Nom']}</span>`;
+  }).join('') || '<div style="color:var(--text-3);font-size:13px;">Aucun tag — crée-en dans Paramètres</div>';
+  document.getElementById('modal-tag-select').classList.remove('hidden');
+}
+
+async function toggleTag(tagName) {
+  let prospectTags = selectedProspect['Tags'] ? selectedProspect['Tags'].split(',').filter(Boolean) : [];
+  if (prospectTags.includes(tagName)) {
+    prospectTags = prospectTags.filter(t => t !== tagName);
+  } else {
+    prospectTags.push(tagName);
+  }
+  const tagsStr = prospectTags.join(',');
+  await api('updateProspect', { id: selectedProspect['ID'], tags: tagsStr });
+  selectedProspect['Tags'] = tagsStr;
+  closeModal('modal-tag-select');
+  await renderDetail();
+}
+
+async function removeTag(tagName) {
+  let prospectTags = selectedProspect['Tags'] ? selectedProspect['Tags'].split(',').filter(Boolean) : [];
+  prospectTags = prospectTags.filter(t => t !== tagName);
+  const tagsStr = prospectTags.join(',');
+  await api('updateProspect', { id: selectedProspect['ID'], tags: tagsStr });
+  selectedProspect['Tags'] = tagsStr;
+  await renderDetail();
+}
+
+// ─── APPELS ────────────────────────────────────────────────
+function toggleAddCall() {
+  document.getElementById('add-call-form').classList.toggle('hidden');
+  document.getElementById('call-note').value = '';
+}
+
+async function saveCall() {
+  const note = document.getElementById('call-note').value;
+  if (!note.trim()) { showToast('La note est requise', 'error'); return; }
+  const result = await api('addAppel', {
+    prospectId: selectedProspect['ID'],
+    date: document.getElementById('call-date').value,
+    heure: document.getElementById('call-heure').value,
+    note
+  });
+  if (result.error) { showToast(result.error, 'error'); return; }
+  await loadProspects();
+  selectedProspect = prospects.find(p => p['ID'] == selectedProspect['ID']);
+  renderProspectList();
+  await renderDetail();
+  showToast('Appel enregistré ✓', 'success');
+}
+
+function toggleEditCall(id) {
+  const view = document.getElementById('call-note-view-' + id);
+  const edit = document.getElementById('call-note-edit-' + id);
+  view.classList.toggle('hidden');
+  edit.classList.toggle('hidden');
+  if (!edit.classList.contains('hidden')) edit.focus();
+}
+
+async function saveEditCall(id) {
+  const note = document.getElementById('call-note-edit-' + id).value;
+  await api('updateAppel', { id, note });
+  document.getElementById('call-note-view-' + id).textContent = note;
+  toggleEditCall(id);
+  showToast('Note mise à jour ✓', 'success');
+}
+
+async function updateAppel(id, field) {
+  const data = { id };
+  if (field === 'date') data.date = document.getElementById('call-date-' + id).value;
+  if (field === 'heure') data.heure = document.getElementById('call-heure-' + id).value;
+  await api('updateAppel', data);
+}
+
+async function deleteCall(id) {
+  if (!confirm('Supprimer cet appel ?')) return;
+  await api('deleteAppel', { id });
+  await renderDetail();
+  showToast('Appel supprimé', 'success');
+}
+
+// ─── GOOGLE MEET ───────────────────────────────────────────
+function openMeetModal() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('meet-date').value = today;
+  document.getElementById('modal-meet').classList.remove('hidden');
+}
+
+async function confirmMeet() {
+  const p = selectedProspect;
+  const dateHeure = document.getElementById('meet-date').value + 'T' + document.getElementById('meet-heure').value + ':00';
+  showToast('Création du Meet...', '');
+  const result = await api('createMeet', {
+    nom: p['Nom'], entreprise: p['Entreprise'], email: p['Email'], dateHeure
+  });
+  closeModal('modal-meet');
+  if (result.error) { showToast(result.error, 'error'); return; }
+  showToast('Google Meet créé et invitation envoyée ✓', 'success');
+  if (result.meetLink && result.meetLink !== 'Lien Meet non disponible') {
+    setTimeout(() => window.open(result.meetLink, '_blank'), 500);
+  }
+}
+
+// ─── RELANCE ───────────────────────────────────────────────
+function openRelanceModal() {
+  document.getElementById('relance-date').value = '';
+  document.getElementById('modal-relance').classList.remove('hidden');
+}
+
+async function confirmRelance() {
+  const date = document.getElementById('relance-date').value;
+  if (!date) { showToast('Sélectionne une date', 'error'); return; }
+  const p = selectedProspect;
+  const appels = appelsCache[p['ID']] || [];
+  const dernierAppel = appels[0];
+
+  showToast('Création de l\'événement...', '');
+  const result = await api('createRelance', {
+    nom: p['Nom'], entreprise: p['Entreprise'], dateRelance: date,
+    statut: p['Statut'],
+    dateDernierAppel: dernierAppel?.Date || 'Aucun appel',
+    derniereNote: dernierAppel?.Note || 'Aucune note'
+  });
+  if (result.error) { showToast(result.error, 'error'); return; }
+
+  await api('updateProspect', { id: p['ID'], dateRelance: date });
+  await loadProspects();
+  selectedProspect = prospects.find(pr => pr['ID'] == p['ID']);
+  closeModal('modal-relance');
+  renderProspectList();
+  await renderDetail();
+  showToast('Relance planifiée ✓', 'success');
+}
+
+// ─── DASHBOARD ─────────────────────────────────────────────
+async function renderDashboard() {
+  const result = await api('getDashboard');
+  const grid = document.getElementById('dash-grid');
+  const today = new Date().toISOString().split('T')[0];
+
+  grid.innerHTML = `
+    <div class="dash-card">
+      <div class="dash-card-accent" style="background:var(--navy)"></div>
+      <div class="dash-card-label">Prospects actifs</div>
+      <div class="dash-card-value">${result.prospectsActifs || 0}</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-card-accent" style="background:var(--orange)"></div>
+      <div class="dash-card-label">Relances en retard</div>
+      <div class="dash-card-value" style="color:${result.relancesEnRetard > 0 ? 'var(--danger)' : 'var(--text)'}">${result.relancesEnRetard || 0}</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-card-accent" style="background:var(--success)"></div>
+      <div class="dash-card-label">Clients</div>
+      <div class="dash-card-value" style="color:var(--success)">${result.totalClients || 0}</div>
+      <div class="dash-card-sub">Taux conversion : ${result.tauxConversion || 0}%</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-card-accent" style="background:#3B82F6"></div>
+      <div class="dash-card-label">Démos en cours</div>
+      <div class="dash-card-value">${result.demosEnCours || 0}</div>
+    </div>
+    <div class="dash-card">
+      <div class="dash-card-accent" style="background:var(--text-3)"></div>
+      <div class="dash-card-label">Inactifs +${parametres['inactivite_jours'] || 30}j</div>
+      <div class="dash-card-value" style="color:var(--text-3)">${result.prospectsInactifs || 0}</div>
+    </div>
+  `;
+
+  // Relances en retard
+  const late = prospects.filter(p => p['Date relance'] && p['Date relance'] < today && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']));
+  const relEl = document.getElementById('relances-list');
+  if (!late.length) {
+    relEl.innerHTML = '<div class="empty-state">✅ Aucune relance en retard</div>';
+  } else {
+    relEl.innerHTML = late.map(p => `
+      <div class="relance-row" onclick="selectProspect('${p['ID']}');switchView('list')">
+        <div>
+          <div class="relance-info">${p['Nom']}</div>
+          <div class="relance-company">${p['Entreprise'] || ''}</div>
+        </div>
+        <div class="relance-date">📅 ${p['Date relance']}</div>
+      </div>`).join('');
+  }
+}
+
+// ─── KANBAN ────────────────────────────────────────────────
+function renderKanban() {
+  const board = document.getElementById('kanban-board');
+  board.innerHTML = statuts.filter(s => s['Nom'] !== 'Mise en sommeil').map(s => {
+    const cols = prospects.filter(p => p['Statut'] === s['Nom']);
+    return `
+      <div class="kanban-col">
+        <div class="kanban-col-header">
+          <div class="kanban-col-name">
+            <span style="width:10px;height:10px;border-radius:50%;background:${s['Couleur']};display:inline-block;"></span>
+            ${s['Nom']}
+          </div>
+          <span class="kanban-col-count">${cols.length}</span>
+        </div>
+        <div class="kanban-cards">
+          ${cols.length === 0 ? '<div style="color:var(--text-3);font-size:12px;text-align:center;padding:12px;">Vide</div>' :
+            cols.map(p => `
+              <div class="kanban-card" onclick="selectProspect('${p['ID']}');switchView('list')">
+                <div class="kanban-card-name">${p['Nom']}</div>
+                <div class="kanban-card-company">${p['Entreprise'] || ''}</div>
+                <div class="kanban-card-meta">
+                  ${p['Date relance'] ? `<span style="font-size:10px;color:var(--orange);">📅 ${p['Date relance']}</span>` : ''}
+                  ${p['Offre intéressée'] ? `<span style="font-size:10px;color:var(--text-3);">💼 ${p['Offre intéressée']}</span>` : ''}
+                </div>
+              </div>`).join('')}
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─── SETTINGS ──────────────────────────────────────────────
+function renderSettings() {
+  // Statuts
+  const sl = document.getElementById('statuts-list');
+  sl.innerHTML = statuts.map(s => `
+    <div class="settings-row">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="status-color-dot" style="background:${s['Couleur']}"></span>
+        <div class="settings-row-label">${s['Nom']}</div>
+      </div>
+      <div style="display:flex;gap:6px;">
+        <input type="color" value="${s['Couleur']}" onchange="updateStatutColor('${s['ID']}', this.value)"
+          style="width:30px;height:30px;border:none;background:none;cursor:pointer;border-radius:6px;">
+        <button class="btn-danger" onclick="deleteStatut('${s['ID']}')">Supprimer</button>
+      </div>
+    </div>`).join('');
+
+  // Tags
+  const tl = document.getElementById('tags-list');
+  tl.innerHTML = tags.map(t => `
+    <div class="settings-row">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="tag" style="background:${t['Couleur']}22;color:${t['Couleur']};border:1px solid ${t['Couleur']}44;">${t['Nom']}</span>
+      </div>
+      <button class="btn-danger" onclick="deleteTag('${t['ID']}')">Supprimer</button>
+    </div>`).join('');
+
+  // Params
+  document.getElementById('param-meet-titre').value = parametres['meet_titre'] || '';
+  document.getElementById('param-meet-desc').value = parametres['meet_description'] || '';
+  document.getElementById('param-relance-titre').value = parametres['relance_titre'] || '';
+  document.getElementById('param-relance-desc').value = parametres['relance_description'] || '';
+  document.getElementById('param-inactif').value = parametres['inactivite_jours'] || 30;
+}
+
+let saveParamTimer = {};
+function saveParam(cle, valeur) {
+  clearTimeout(saveParamTimer[cle]);
+  saveParamTimer[cle] = setTimeout(async () => {
+    await api('updateParametre', { cle, valeur });
+    parametres[cle] = valeur;
+    showToast('Paramètre sauvegardé ✓', 'success');
+  }, 1000);
+}
+
+function openAddStatut() { document.getElementById('statut-nom').value = ''; document.getElementById('modal-statut').classList.remove('hidden'); }
+async function saveStatut() {
+  const nom = document.getElementById('statut-nom').value;
+  if (!nom.trim()) return;
+  await api('addStatut', { nom, couleur: document.getElementById('statut-couleur').value });
+  await loadStatuts();
+  closeModal('modal-statut');
+  renderSettings();
+  renderSidebarFilters();
+  showToast('Statut ajouté ✓', 'success');
+}
+async function updateStatutColor(id, couleur) {
+  await api('updateStatut', { id, couleur });
+  await loadStatuts();
+  renderSettings();
+  renderSidebarFilters();
+  renderProspectList();
+}
+async function deleteStatut(id) {
+  if (!confirm('Supprimer ce statut ?')) return;
+  await api('deleteStatut', { id });
+  await loadStatuts();
+  renderSettings();
+  renderSidebarFilters();
+  showToast('Statut supprimé', 'success');
+}
+
+function openAddTag() { document.getElementById('tag-nom').value = ''; document.getElementById('modal-tag').classList.remove('hidden'); }
+async function saveTag() {
+  const nom = document.getElementById('tag-nom').value;
+  if (!nom.trim()) return;
+  await api('addTag', { nom, couleur: document.getElementById('tag-couleur').value });
+  await loadTags();
+  closeModal('modal-tag');
+  renderSettings();
+  showToast('Tag ajouté ✓', 'success');
+}
+async function deleteTag(id) {
+  if (!confirm('Supprimer ce tag ?')) return;
+  await api('deleteTag', { id });
+  await loadTags();
+  renderSettings();
+  showToast('Tag supprimé', 'success');
+}
+
+// ─── UTILS ─────────────────────────────────────────────────
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+let toastTimer;
+function showToast(msg, type = '') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  if (type !== '') toastTimer = setTimeout(hideToast, 3000);
+}
+function hideToast() {
+  document.getElementById('toast').className = '';
+}
+
+// Fermer modals en cliquant dehors
+document.querySelectorAll('.modal-overlay').forEach(m => {
+  m.addEventListener('click', e => { if (e.target === m) m.classList.add('hidden'); });
+});
+
+// Init
+init();
+</script>
+</body>
+</html>
