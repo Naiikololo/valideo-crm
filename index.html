@@ -1360,7 +1360,7 @@ function renderDrawer() {
     <div class="drawer-section">
       <div class="drawer-section-title">Contacts</div>
       ${p['Téléphone'] ? `<div class="drawer-row"><div class="drawer-row-label">Téléphone</div><div class="drawer-row-value"><span style="user-select:all;cursor:text;">${formatPhone(p['Téléphone'])}</span></div></div>` : ''}
-      ${p['Email'] ? `<div class="drawer-row"><div class="drawer-row-label">Email</div><div class="drawer-row-value"><a href="mailto:${p['Email']}" style="color:inherit;text-decoration:none;font-size:12px;">${p['Email']}</a></div></div>` : ''}
+      ${p['Email'] ? `<div class="drawer-row"><div class="drawer-row-label">Email</div><div class="drawer-row-value"><a href="mailto:${esc(p['Email'])}" style="color:inherit;text-decoration:none;font-size:12px;">${esc(p['Email'])}</a></div></div>` : ''}
       ${p['Source'] ? `<div class="drawer-row"><div class="drawer-row-label">Source</div><div class="drawer-row-value">${esc(p['Source'])}</div></div>` : ''}
       ${p['Offre intéressée'] ? `<div class="drawer-row"><div class="drawer-row-label">Offre</div><div class="drawer-row-value">${esc(p['Offre intéressée'])}</div></div>` : ''}
       
@@ -1437,21 +1437,6 @@ function openFullProspect(action) {
   }
 }
 
-function buildStatsHtml(p, nbAppels, demosFaites, noShows, nbUsers, hasOffre) {
-  const pid = String(p['ID']).replace(/'/g, '');
-  const offreChip = p['Offre interessée'] || p['Offre intéressée']
-    ? '<span style="background:rgba(26,60,94,0.08);color:#1a3c5e;border:1px solid rgba(26,60,94,0.15);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;">📦 ' + (p['Offre intéressée'] || '') + '</span>'
-    : '';
-  const usersBtn = '<button onclick="openEditNbUsers(' + "'" + pid + "'" + ')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#10B981;opacity:0.7;padding:0;line-height:1;">✏️</button>';
-  const usersChip = '<span style="background:rgba(16,185,129,0.08);color:#10B981;border:1px solid rgba(16,185,129,0.15);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">👥 ' + nbUsers + ' utilisateur' + (nbUsers > 1 ? 's' : '') + ' ' + usersBtn + '</span>';
-  const statsGrid = '<div style="display:flex;gap:10px;' + (hasOffre ? 'margin-bottom:12px;' : '') + '">'
-    + '<div style="background:#f4f6f8;border-radius:8px;padding:8px 16px;display:flex;align-items:center;gap:10px;"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;">Appels</div><div style="font-size:18px;font-weight:800;color:#1a3c5e;">' + nbAppels + '</div></div>'
-    + '<div style="background:#f4f6f8;border-radius:8px;padding:8px 16px;display:flex;align-items:center;gap:10px;"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.6px;font-weight:600;">Démos faites</div><div style="font-size:18px;font-weight:800;color:#3B82F6;">' + demosFaites + '</div></div>'
-    + '</div>';
-  const chipsRow = hasOffre ? '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' + offreChip + usersChip + '</div>' : '';
-  return '<div style="padding:10px 20px;border-bottom:1px solid #e2e8f0;">' + statsGrid + chipsRow + '</div>';
-}
-
 function renderFullProspect() {
   const p = selectedProspect;
   if (!p) return;
@@ -1503,7 +1488,7 @@ function renderFullProspect() {
     <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:14px;">
       <button class="btn-back" onclick="switchView('dashboard')">← Retour</button>
       <div style="flex:1;">
-        <div style="font-size:18px;font-weight:800;color:var(--navy);">${p['Nom'] || '—'}</div>
+        <div style="font-size:18px;font-weight:800;color:var(--navy);">${esc(p['Nom'] || '—')}</div>
         <div style="font-size:12px;color:var(--text-3);">${[p['Entreprise'], p['Secteur']].filter(Boolean).join(' · ')}</div>
       </div>
       <div class="status-dropdown" id="status-dd">
@@ -1527,17 +1512,17 @@ function renderFullProspect() {
           <div style="padding:22px 24px 18px;border-bottom:1px solid var(--border);">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;">
               <div>
-                <div style="font-size:20px;font-weight:800;color:var(--navy);line-height:1.2;">${p['Nom'] || '—'}</div>
+                <div style="font-size:20px;font-weight:800;color:var(--navy);line-height:1.2;">${esc(p['Nom'] || '—')}</div>
                 <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap;">
-                  ${p['Entreprise'] ? `<span style="font-size:13px;font-weight:600;color:var(--text-2);">🏢 ${p['Entreprise']}</span>` : ''}
+                  ${p['Entreprise'] ? `<span style="font-size:13px;font-weight:600;color:var(--text-2);">🏢 ${esc(p['Entreprise'])}</span>` : ''}
                   ${p['Entreprise'] && p['Secteur'] ? `<span style="color:var(--border);">·</span>` : ''}
-                  ${p['Secteur'] ? `<span style="font-size:12px;color:var(--text-3);background:var(--bg);padding:2px 8px;border-radius:20px;">${p['Secteur']}</span>` : ''}
+                  ${p['Secteur'] ? `<span style="font-size:12px;color:var(--text-3);background:var(--bg);padding:2px 8px;border-radius:20px;">${esc(p['Secteur'])}</span>` : ''}
                 </div>
               </div>
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
               ${prospectTags.map(t => { const tObj = tags.find(tg => tg['Nom'] === t); const color = tObj?.Couleur || '#94A3B8';
-                return `<span class="tag" style="background:${color}22;color:${color};border:1px solid ${color}44;">${t} <span class="tag-remove" onclick="removeTag('${t}')">×</span></span>`; }).join('')}
+                return `<span class="tag" style="background:${color}22;color:${color};border:1px solid ${color}44;">${esc(t)} <span class="tag-remove" onclick="removeTag('${t}')">×</span></span>`; }).join('')}
               <span class="tag-add" onclick="openTagSelect()">+ Tag</span>
             </div>
           </div>
@@ -1649,7 +1634,7 @@ function renderDashboard() {
   const relEl = document.getElementById('relances-list');
   relEl.innerHTML = late.length === 0 ? '<div class="empty-state">✅ Aucune relance en retard</div>' :
     late.map(p => `<div class="relance-row" onclick="openDrawer('${p['ID']}')">
-      <div><div class="relance-info">${p['Nom']}</div><div class="relance-company">${p['Entreprise'] || ''}</div></div>
+      <div><div class="relance-info">${esc(p['Nom'] || p['Entreprise'] || '—')}</div><div class="relance-company">${p['Entreprise'] || ''}</div></div>
       <div style="display:flex;align-items:center;gap:10px;">
         <span class="relance-date">📅 ${formatDate(p['Date relance'])}</span>
         <button class="btn-open-full" onclick="event.stopPropagation();openFullProspectById('${p['ID']}')">→</button>
@@ -1722,7 +1707,7 @@ async function saveProspect() {
   } else {
     const tempId = 'temp_' + Date.now();
     const defaultStatut = parametres['statut_defaut'] || 'Nouveau';
-    const defaultTags = parametres['tags_defaut'] || '';
+    const defaultTags = (parametres['tags_defaut'] !== undefined && parametres['tags_defaut'] !== null) ? parametres['tags_defaut'] : 'Vous';
     const defaultOffre = data.offre || 'Gratuit';
     const newP = {'ID':tempId,'Nom':data.nom,'Entreprise':data.entreprise,'Secteur':data.secteur,'Téléphone':data.telephone,'Email':data.email,'Source':data.source,'Offre intéressée':defaultOffre,'Nb utilisateurs':data.nbUtilisateurs,'Statut':defaultStatut,'Date relance':'','Dernière activité':today,'Date création':today,'Tags':defaultTags,'Notes permanentes':''};
     data.offre = defaultOffre; data.tags = defaultTags; data.statut = defaultStatut;
@@ -1866,19 +1851,6 @@ function toggleEditCall(id) {
   if (edit && !edit.classList.contains('hidden')) { edit.focus(); edit.setSelectionRange(edit.value.length, edit.value.length); }
 }
 
-function cancelEditCall(id) {
-  const view = document.getElementById('call-note-view-' + id);
-  const edit = document.getElementById('call-note-edit-' + id);
-  const actions = document.getElementById('call-note-actions-' + id);
-  if (appelsCache[selectedProspect['ID']]) {
-    const call = appelsCache[selectedProspect['ID']].find(c => c['ID'] == id);
-    if (edit) edit.value = call?.['Note'] || '';
-  }
-  view?.classList.remove('hidden');
-  edit?.classList.add('hidden');
-  actions?.classList.add('hidden');
-}
-
 function saveEditCall(id) {
   const note = document.getElementById('call-note-edit-' + id)?.value || '';
   const viewEl = document.getElementById('call-note-view-' + id);
@@ -1892,37 +1864,6 @@ function saveEditCall(id) {
   document.getElementById('call-note-actions-' + id)?.classList.add('hidden');
   showToast('Note mise à jour ✓', 'success');
   api('updateAppel', { id, note }).then(r => { if (r?.error) showToast('❌ Erreur : ' + r.error, 'error'); });
-}
-
-function toggleCallDateEdit(id) {
-  const view = document.getElementById('call-dt-view-' + id);
-  const edit = document.getElementById('call-dt-edit-' + id);
-  if (!view || !edit) return;
-  const isHidden = edit.classList.contains('hidden');
-  if (isHidden) {
-    view.style.display = 'none';
-    edit.classList.remove('hidden');
-    edit.style.display = 'flex';
-  } else {
-    view.style.display = 'flex';
-    edit.classList.add('hidden');
-    edit.style.display = 'none';
-  }
-}
-
-function saveCallDateTime(id) {
-  const newDate = document.getElementById('call-dt-date-' + id)?.value;
-  const newHeure = document.getElementById('call-dt-heure-' + id)?.value;
-  if (!newDate) { showToast('Date requise', 'error'); return; }
-  // Update cache
-  if (selectedProspect && appelsCache[selectedProspect['ID']]) {
-    const ci = appelsCache[selectedProspect['ID']].findIndex(c => c['ID'] == id);
-    if (ci !== -1) { appelsCache[selectedProspect['ID']][ci]['Date'] = newDate; appelsCache[selectedProspect['ID']][ci]['Heure'] = newHeure; }
-  }
-  // Re-render timeline
-  if (currentView === 'prospect') renderFullProspect();
-  showToast('Date mise à jour ✓', 'success');
-  api('updateAppel', { id, date: newDate, heure: newHeure }).then(r => { if (r?.error) showToast('❌ Erreur : ' + r.error, 'error'); });
 }
 
 async function deleteProspect() {
