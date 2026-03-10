@@ -2465,6 +2465,7 @@ function updateEvenementStatutFromRight(id, statut, pid) {
 
 // ─── UNIFIED TIMELINE ──────────────────────────────────────
 function renderUnifiedTimeline(pid) {
+  const p = selectedProspect;
   const appels = (appelsCache[pid] || []).map(a => ({ ...a, _type: 'appel', _sortKey: (a['Date'] || '') + (a['Heure'] || '') }));
   const evts = (evenementsCache[pid] || []).map(e => ({ ...e, _type: 'evenement', _sortKey: (e['Date'] || '') + (e['Heure'] || '') }));
   const all = [...appels, ...evts].sort((a, b) => b._sortKey.localeCompare(a._sortKey));
