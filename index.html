@@ -173,7 +173,8 @@
   .tag-remove { cursor: pointer; opacity: 0.7; } .tag-remove:hover { opacity: 1; }
   .tag-add { background: var(--bg); border: 1px dashed var(--border); border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; color: var(--text-3); transition: all 0.15s; }
   .tag-add:hover { border-color: var(--navy); color: var(--navy); }
-  .notes-perm textarea { width: 100%; background: #FFFBEB; border: 1px solid #FDE68A; border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--text); font-family: 'Poppins', sans-serif; resize: vertical; outline: none; min-height: 80px; line-height: 1.6; }
+  .notes-perm textarea { width: 100%; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--text); font-family: 'Poppins', sans-serif; resize: vertical; outline: none; min-height: 80px; line-height: 1.6; transition: border-color 0.15s; }
+  .notes-perm textarea:focus { border-color: var(--navy-light); background: #fff; }
   .action-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
   .btn-meet { background: var(--surface); color: var(--navy); border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Poppins', sans-serif; transition: all 0.15s; }
   .btn-meet:hover { background: #EFF6FF; border-color: var(--navy); }
@@ -667,14 +668,14 @@
         <div class="settings-section">
           <div class="settings-title">📹 Modèle Google Meet</div>
           <div class="modal-field"><label class="modal-label">Titre <span style="font-weight:400;color:var(--text-3);">— variables : {entreprise}, {nom}</span></label><input class="modal-input" id="param-meet-titre" oninput="saveParam('meet_titre', this.value)"></div>
-          <div class="modal-field"><label class="modal-label">Description</label><textarea class="param-textarea" id="param-meet-desc" oninput="saveParam('meet_description', this.value)" style="min-height:120px;"></textarea></div>
+          <div class="modal-field"><label class="modal-label">Description</label><textarea class="param-textarea" id="param-meet-desc" oninput="saveParam('meet_description', this.value.replace(/\n/g,'\\n'))" style="min-height:120px;"></textarea></div>
         </div>
 
         <!-- Modèle Relance -->
         <div class="settings-section">
           <div class="settings-title">📅 Modèle Relance Calendar</div>
           <div class="modal-field"><label class="modal-label">Titre <span style="font-weight:400;color:var(--text-3);">— variables : {nom}, {entreprise}</span></label><input class="modal-input" id="param-relance-titre" oninput="saveParam('relance_titre', this.value)"></div>
-          <div class="modal-field"><label class="modal-label">Description <span style="font-weight:400;color:var(--text-3);">— variables : {date_dernier_appel}, {statut}, {derniere_note}</span></label><textarea class="param-textarea" id="param-relance-desc" oninput="saveParam('relance_description', this.value)" style="min-height:120px;"></textarea></div>
+          <div class="modal-field"><label class="modal-label">Description <span style="font-weight:400;color:var(--text-3);">— variables : {date_dernier_appel}, {statut}, {derniere_note}</span></label><textarea class="param-textarea" id="param-relance-desc" oninput="saveParam('relance_description', this.value.replace(/\n/g,'\\n'))" style="min-height:120px;"></textarea></div>
         </div>
 
         <!-- Inactivité -->
@@ -690,7 +691,6 @@
           <div class="modal-field" style="margin-top:12px;">
             <label class="modal-label">Statut par défaut (nouveau prospect)</label>
             <select id="param-statut-defaut" class="modal-select" style="max-width:240px;" onchange="saveParam('statut_defaut', this.value)">
-              ${statuts.map(s => `<option value="${esc(s['Nom'])}" ${(parametres['statut_defaut']||'Nouveau') === s['Nom'] ? 'selected' : ''}>${esc(s['Nom'])}</option>`).join('')}
             </select>
           </div>
         </div>
@@ -1661,7 +1661,10 @@ async function saveProspect() {
     offre: document.getElementById('p-offre').value, nbUtilisateurs: document.getElementById('p-nb').value };
   if (!data.nom.trim()) { showToast('Le nom est requis', 'error'); return; }
   if (!id) {
-    const dup = prospects.find(p => p['Téléphone'] === data.telephone || (data.email && p['Email'] === data.email));
+    const dup = prospects.find(p => 
+      (data.telephone && data.telephone.replace(/\s/g,'').length > 5 && p['Téléphone'] && p['Téléphone'].replace(/\s/g,'') === data.telephone.replace(/\s/g,'')) ||
+      (data.email && data.email.trim() && p['Email'] && p['Email'].toLowerCase().trim() === data.email.toLowerCase().trim())
+    );
     if (dup) {
       const ok = await showConfirm(`Un prospect similaire existe déjà : <strong>${dup['Nom']}</strong>.<br>Veux-tu quand même créer ce prospect ?`, 'Doublon détecté', 'Créer quand même');
       if (!ok) return;
@@ -2140,10 +2143,15 @@ function renderSettings() {
     </div>`).join('');
 
   const pmt = document.getElementById('param-meet-titre'); if (pmt) pmt.value = parametres['meet_titre'] || '';
-  const pmd = document.getElementById('param-meet-desc'); if (pmd) pmd.value = parametres['meet_description'] || '';
+  const pmd = document.getElementById('param-meet-desc'); if (pmd) pmd.value = (parametres['meet_description'] || '').replace(/\\n/g, '\n');
   const prt = document.getElementById('param-relance-titre'); if (prt) prt.value = parametres['relance_titre'] || '';
-  const prd = document.getElementById('param-relance-desc'); if (prd) prd.value = parametres['relance_description'] || '';
+  const prd = document.getElementById('param-relance-desc'); if (prd) prd.value = (parametres['relance_description'] || '').replace(/\\n/g, '\n');
   const pi = document.getElementById('param-inactif'); if (pi) pi.value = parametres['inactivite_jours'] || 30;
+  const psd = document.getElementById('param-statut-defaut');
+  if (psd) {
+    const currentDefault = parametres['statut_defaut'] || 'Nouveau';
+    psd.innerHTML = statuts.map(s => `<option value="${esc(s['Nom'])}" ${currentDefault === s['Nom'] ? 'selected' : ''}>${esc(s['Nom'])}</option>`).join('');
+  }
 }
 
 // ─── DRAG & DROP — STATUTS ────────────────────────────────
