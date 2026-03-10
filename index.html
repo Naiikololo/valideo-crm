@@ -1202,7 +1202,6 @@ function setTagFilter(f) { activeTagFilter = f; currentPage = 0; renderFilterChi
 function getFilteredProspects() {
   const today = new Date().toISOString().split('T')[0];
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
-  const list = getFilteredProspects();
   return prospects.filter(p => {
     if (activeStatutFilter !== 'Tous' && p['Statut'] !== activeStatutFilter) return false;
     if (activeTagFilter && !(p['Tags'] || '').split(',').includes(activeTagFilter)) return false;
