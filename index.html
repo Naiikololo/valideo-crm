@@ -1150,7 +1150,7 @@ function renderProspectsTable() {
   if (!list.length) { tbody.innerHTML = '<div class="empty-state">Aucun prospect trouvé</div>'; return; }
   tbody.innerHTML = list.map(p => {
     const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8', Nom: p['Statut'] || '—' };
-    const isLate = p['Date relance'] && p['Date relance'] < today && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']);
+    const isLate = p['Date relance'] && (p['Date relance'] || '').substring(0,10) < today && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']);
     const isDrawerSelected = selectedProspect && selectedProspect['ID'] === p['ID'] && drawerOpen;
     return `<div class="table-row ${isDrawerSelected ? 'drawer-open' : ''} ${p['Statut'] === 'Mise en sommeil' ? 'sommeil' : ''}" onclick="openDrawer('${p['ID']}')">
       <div><div class="prospect-name">${p['Nom'] || '—'}</div></div>
@@ -1201,7 +1201,7 @@ function renderDrawer() {
   const today = new Date().toISOString().split('T')[0];
   const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8' };
   const appels = appelsCache[p['ID']] || [];
-  const isLate = p['Date relance'] && p['Date relance'] < today;
+  const isLate = p['Date relance'] && (p['Date relance'] || '').substring(0,10) < today;
 
   document.getElementById('drawer-name').textContent = p['Nom'] || '—';
   document.getElementById('drawer-company').textContent = [p['Entreprise'], p['Secteur']].filter(Boolean).join(' · ');
@@ -1329,7 +1329,7 @@ function renderFullProspect() {
   const appels = appelsCache[p['ID']] || [];
   const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8' };
   const today = new Date().toISOString().split('T')[0];
-  const isLate = p['Date relance'] && p['Date relance'] < today;
+  const isLate = p['Date relance'] && (p['Date relance'] || '').substring(0,10) < today;
   const prospectTags = p['Tags'] ? p['Tags'].split(',').filter(Boolean) : [];
 
   // Show/hide loading bar based on whether data is loaded
@@ -1398,7 +1398,21 @@ function renderFullProspect() {
             </div>
           </div>
 
-          
+          <!-- Stats + Chips inline -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid var(--border);background:#fafbfc;">
+            <div style="display:flex;gap:20px;align-items:center;">
+              <div style="display:flex;align-items:baseline;gap:6px;">
+                <span style="font-size:22px;font-weight:800;color:#1a3c5e;">${_nbAppels}</span>
+                <span style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Appels</span>
+              </div>
+              <div style="width:1px;height:20px;background:var(--border);"></div>
+              <div style="display:flex;align-items:baseline;gap:6px;">
+                <span style="font-size:22px;font-weight:800;color:#3B82F6;">${_demosFaites}</span>
+                <span style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Démos</span>
+              </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">${_chipsHtml}</div>
+          </div>
 
           <!-- Contacts en grille -->
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--border);">
@@ -1470,7 +1484,7 @@ function renderDashboard() {
   const actifs = prospects.filter(p => !['Client','Perdu','Mise en sommeil'].includes(p['Statut'])).length;
   const clients = prospects.filter(p => p['Statut'] === 'Client').length;
   const demos = prospects.filter(p => p['Statut'] === 'Démo planifiée').length;
-  const late = prospects.filter(p => p['Date relance'] && p['Date relance'] < today && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']));
+  const late = prospects.filter(p => { const dr = (p['Date relance'] || '').substring(0, 10); return dr && dr < today && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']); });
   const inactifs = prospects.filter(p => !['Client','Perdu','Mise en sommeil'].includes(p['Statut']) && p['Dernière activité'] && new Date(p['Dernière activité']) < limitDate).length;
   const total = prospects.filter(p => p['Statut'] !== 'Mise en sommeil').length;
   const taux = total > 0 ? Math.round((clients / total) * 100) : 0;
@@ -2171,6 +2185,20 @@ function confirmEventDateEdit() {
   if (!newDate) { showToast('⚠️ La date est requise', 'error'); return; }
   closeModal('modal-edit-event-date');
 
+  // Handle relance date edit → also update prospect Date relance
+  if (type === 'relance' && evenementId) {
+    const pid = selectedProspect?.['ID'];
+    if (pid) {
+      // Update prospect Date relance in cache + ui
+      const pidx = prospects.findIndex(p => p['ID'] == pid);
+      if (pidx !== -1) prospects[pidx]['Date relance'] = newDate;
+      selectedProspect['Date relance'] = newDate;
+      renderProspectsTable(); renderDashboard();
+      if (drawerOpen) renderDrawer();
+      if (currentView === 'prospect') renderFullProspect();
+    }
+  }
+
   // Handle appel date edit
   if (type === 'appel' && callId) {
     const pid = selectedProspect?.['ID'];
@@ -2356,7 +2384,9 @@ function showToast(msg, type = '') {
 }
 
 function formatDate(s) {
-  if (!s) return '—'; s = String(s);
+  if (!s) return '—';
+  s = String(s).substring(0, 10); // normalize, strips time component
+  if (s.startsWith('1899') || s.startsWith('1900') || s === '0000-00-00') return '—';
   if (s.includes('-')) { const [y,m,d] = s.split('-'); return d + '/' + m + '/' + y; }
   return s;
 }
@@ -2371,7 +2401,7 @@ function renderResumeCard(p) {
   const appels = appelsCache[p['ID']] || [];
   const evts = evenementsCache[p['ID']] || [];
   const today = new Date().toISOString().split('T')[0];
-  const isLate = p['Date relance'] && p['Date relance'] < today;
+  const isLate = p['Date relance'] && (p['Date relance'] || '').substring(0,10) < today;
   const meetsFaits = evts.filter(e => e['Type'] === 'meet' && e['Statut'] === 'Fait').length;
   const meetsNoShow = evts.filter(e => e['Type'] === 'meet' && e['Statut'] === 'No show').length;
   const nextEvt = evts.filter(e => e['Statut'] === 'Planifié').sort((a,b) => a['Date'].localeCompare(b['Date']))[0];
@@ -2448,7 +2478,7 @@ function renderEventsRightPanel(pid) {
         <span class="meet-statut meet-statut-${statutClass}">${e['Statut']}</span>
       </div>
       <div style="font-size:12px;font-weight:600;color:var(--text-2);margin-bottom:4px;">
-        📆 ${formatDate(e['Date'])}${e['Heure'] ? ' à ' + e['Heure'] : ''}
+        📆 ${formatDate(e['Date'])}${e['Heure'] ? ' à ' + formatHeure(e['Heure']) : ''}
       </div>
       ${e['LienMeet'] ? `<a class="meet-link" href="${e['LienMeet']}" target="_blank" style="display:inline-block;margin-bottom:6px;">🔗 Rejoindre le Meet</a>` : ''}
       ${e['Note'] ? `<div style="font-size:11px;color:var(--text-2);line-height:1.5;border-top:1px solid ${accentColor}22;padding-top:6px;margin-top:4px;">${e['Note']}</div>` : ''}
@@ -2494,8 +2524,8 @@ function updateEvenementStatutFromRight(id, statut, pid) {
 // ─── UNIFIED TIMELINE ──────────────────────────────────────
 function renderUnifiedTimeline(pid) {
   const p = selectedProspect;
-  const appels = (appelsCache[pid] || []).map(a => ({ ...a, _type: 'appel', _sortKey: (a['Date'] || '') + (a['Heure'] || '') }));
-  const evts = (evenementsCache[pid] || []).map(e => ({ ...e, _type: 'evenement', _sortKey: (e['Date'] || '') + (e['Heure'] || '') }));
+  const appels = (appelsCache[pid] || []).map(a => ({ ...a, _type: 'appel', _sortKey: (a['Date'] || '') + (a['Heure'] && !a['Heure'].startsWith('1899') ? a['Heure'] : '00:00') }));
+  const evts = (evenementsCache[pid] || []).map(e => ({ ...e, _type: 'evenement', _sortKey: (e['Date'] || '') + (e['Heure'] && !e['Heure'].startsWith('1899') ? e['Heure'] : '00:00') }));
   const all = [...appels, ...evts].sort((a, b) => b._sortKey.localeCompare(a._sortKey));
   const total = all.length;
 
