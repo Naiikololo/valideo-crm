@@ -2520,7 +2520,7 @@ function renderUnifiedTimeline(pid) {
             <div class="call-meta">
               <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
                 <span style="font-size:12px;font-weight:700;color:var(--text-2);">${formatDate(item['Date'])}</span>
-                <span style="font-size:11px;color:var(--text-3);">${item['Heure'] || ''}</span>
+                <span style="font-size:11px;color:var(--text-3);">${formatHeure(item['Heure'])}</span>
                 <span class="meet-statut meet-statut-${statutClass}">${item['Statut'] || 'Planifié'}</span>
               </div>
               <div class="call-actions-mini">
