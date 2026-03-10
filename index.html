@@ -1751,7 +1751,7 @@ function confirmMotif() {
   if (drawerOpen) renderDrawer();
   if (currentView === 'prospect') renderFullProspect();
   showToast('Statut mis à jour ✓', 'success');
-  api('updateProspect', { id: pendingProspectId, statut: pendingMotifStatus, motifPerte: motif });
+  api('updateProspect', { id: pendingProspectId, statut: pendingMotifStatus, motifPerte: motif }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde statut : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — statut non sauvegardé', 'error'));
 }
 
 let _notesTimer = null;
@@ -1787,7 +1787,7 @@ function toggleTag(tagName) {
   const tagsStr = pt.join(','); selectedProspect['Tags'] = tagsStr;
   const idx = prospects.findIndex(p => p['ID'] == selectedProspect['ID']); if (idx !== -1) prospects[idx]['Tags'] = tagsStr;
   closeModal('modal-tag-select'); if (currentView === 'prospect') renderFullProspect();
-  api('updateProspect', { id: selectedProspect['ID'], tags: tagsStr });
+  api('updateProspect', { id: selectedProspect['ID'], tags: tagsStr }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde tag : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — tag non sauvegardé', 'error'));
 }
 
 function removeTag(tagName) {
@@ -1796,7 +1796,7 @@ function removeTag(tagName) {
   selectedProspect['Tags'] = tagsStr;
   const idx = prospects.findIndex(p => p['ID'] == selectedProspect['ID']); if (idx !== -1) prospects[idx]['Tags'] = tagsStr;
   if (currentView === 'prospect') renderFullProspect();
-  api('updateProspect', { id: selectedProspect['ID'], tags: tagsStr });
+  api('updateProspect', { id: selectedProspect['ID'], tags: tagsStr }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde tag : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — tag non sauvegardé', 'error'));
 }
 
 // ─── APPELS ────────────────────────────────────────────────
@@ -2476,7 +2476,7 @@ function confirmClientOffre() {
   if (currentView === 'prospect') renderFullProspect();
   renderProspectsTable();
   showToast('Offre enregistrée ✓', 'success');
-  api('updateProspect', { id: pid, offre });
+  api('updateProspect', { id: pid, offre }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde offre : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — offre non sauvegardée', 'error'));
 }
 
 // ─── EVENT NOTE MODAL ──────────────────────────────────────
@@ -2736,7 +2736,7 @@ function updateEvenementStatutFromRight(id, statut, pid) {
   const timeline = document.getElementById('unified-timeline');
   if (timeline) timeline.innerHTML = renderUnifiedTimeline(pid);
   showToast('Statut mis à jour ✓', 'success');
-  api('updateEvenement', { id, statut });
+  api('updateEvenement', { id, statut }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — statut non sauvegardé', 'error'));
 }
 
 // ─── UNIFIED TIMELINE ──────────────────────────────────────
@@ -2822,7 +2822,7 @@ function updateEvenementStatut(id, statut) {
   const pid = selectedProspect['ID'];
   if (evenementsCache[pid]) { const i = evenementsCache[pid].findIndex(e => e['ID'] == id); if (i !== -1) evenementsCache[pid][i]['Statut'] = statut; }
   showToast('Statut mis à jour ✓', 'success');
-  api('updateEvenement', { id, statut });
+  api('updateEvenement', { id, statut }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — statut non sauvegardé', 'error'));
 }
 
 function saveEvenementNote(id) {
@@ -2831,7 +2831,7 @@ function saveEvenementNote(id) {
   const pid = selectedProspect['ID'];
   if (evenementsCache[pid]) { const i = evenementsCache[pid].findIndex(e => e['ID'] == id); if (i !== -1) evenementsCache[pid][i]['Note'] = note; }
   showToast('Note sauvegardée ✓', 'success');
-  api('updateEvenement', { id, note });
+  api('updateEvenement', { id, note }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde note : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — note non sauvegardée', 'error'));
 }
 
 function editEvenementCalendar(evenementId, eventIdCalendar, type, currentDate, currentHeure) {
