@@ -95,6 +95,10 @@
   .table-row:last-child { border-bottom: none; }
   .table-row:hover { background: var(--bg); }
   .table-row.drawer-open { background: #EFF6FF; border-left: 3px solid var(--orange); padding-left: 13px; }
+  .table-row.row-late { background: #FEF2F2; border-left: 3px solid #EF4444; padding-left: 13px; }
+  .table-row.row-late:hover { background: #FEE2E2; }
+  .table-row.row-soon { background: #FFFBEB; border-left: 3px solid #F59E0B; padding-left: 13px; }
+  .table-row.row-soon:hover { background: #FEF3C7; }
   .table-row.sommeil { opacity: 0.55; }
   .prospect-name { font-weight: 600; font-size: 13px; }
   .prospect-company { font-size: 11px; color: var(--text-3); margin-top: 1px; }
@@ -579,9 +583,9 @@
     <input class="header-search" type="text" placeholder="Rechercher un prospect, une entreprise..." id="search-input" oninput="onSearch()">
   </div>
   <div style="display:flex;align-items:center;gap:8px;">
-    <button class="btn-settings" id="btn-dashboard" onclick="switchView('dashboard')">🏠 Dashboard</button>
+    <button class="btn-settings" id="btn-dashboard" onclick="switchView('dashboard')">🏠 Dashboard <span id="header-late-badge" class="hidden" style="background:#EF4444;color:#fff;border-radius:99px;font-size:10px;font-weight:700;padding:1px 6px;margin-left:4px;"></span></button>
     <button class="btn-settings" id="btn-settings" onclick="toggleSettings()">⚙️ Paramètres</button>
-    <button class="btn-primary orange" onclick="openNewProspect()">+ Nouveau prospect</button>
+    <button class="btn-primary orange" onclick="openNewProspect()" title="Nouveau prospect (N)">+ Nouveau prospect</button>
   </div>
 </div>
 
@@ -608,6 +612,9 @@
       <div class="prospects-toolbar" id="prospects-toolbar">
         <div class="filter-chips" id="filter-statuts"><span class="chip active" onclick="setStatutFilter('Tous')">Tous</span></div>
         <div style="width:1px;height:20px;background:var(--border);flex-shrink:0;"></div>
+        <span id="chip-relance-today" class="chip" onclick="toggleRelanceFilter('today')" style="white-space:nowrap;flex-shrink:0;">📅 Aujourd'hui</span>
+        <span id="chip-relance-late" class="chip" onclick="toggleRelanceFilter('late')" style="white-space:nowrap;flex-shrink:0;">⚠️ En retard</span>
+        <div style="width:1px;height:20px;background:var(--border);flex-shrink:0;"></div>
         <div class="filter-select-wrap">
           <select class="filter-select" id="filter-offres" onchange="setOffreFilter(this.value)">
             <option value="">Offre</option>
@@ -625,7 +632,7 @@
       </div>
       <div class="prospects-table">
         <div class="table-header">
-          <div>Prospect</div><div>Entreprise</div><div>Contact</div><div>Statut</div>
+          <div>Prospect</div><div>Tags</div><div>Contact</div><div>Statut</div>
           <div>Offre</div><div>Relance</div><div></div>
         </div>
         <div id="prospects-tbody"></div>
@@ -1005,7 +1012,7 @@ let prospects = [], statuts = [], tags = [], parametres = {}, appelsCache = {}, 
 let selectedProspect = null;
 let currentPage = 0;
 const PAGE_SIZE = 50;
-let activeStatutFilter = 'Tous', activeTagFilter = '', activeOffreFilter = '';
+let activeStatutFilter = 'Tous', activeTagFilter = '', activeOffreFilter = '', activeRelanceFilter = '';
 let searchQuery = '';
 let pendingMotifStatus = '', pendingProspectId = '';
 let currentView = 'dashboard';
@@ -1194,10 +1201,16 @@ function setTagFilter(f) { activeTagFilter = f; currentPage = 0; renderFilterChi
 // ─── PROSPECTS TABLE ───────────────────────────────────────
 function getFilteredProspects() {
   const today = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const list = getFilteredProspects();
   return prospects.filter(p => {
     if (activeStatutFilter !== 'Tous' && p['Statut'] !== activeStatutFilter) return false;
     if (activeTagFilter && !(p['Tags'] || '').split(',').includes(activeTagFilter)) return false;
     if (activeOffreFilter && p['Offre intéressée'] !== activeOffreFilter) return false;
+    const dr = (p['Date relance'] || '').substring(0,10);
+    const excluded = ['Client','Perdu','Mise en sommeil'];
+    if (activeRelanceFilter === 'today' && !(dr === today && !excluded.includes(p['Statut']))) return false;
+    if (activeRelanceFilter === 'late' && !(dr && dr < today && !excluded.includes(p['Statut']))) return false;
     if (searchQuery) {
       return ['Nom','Entreprise','Secteur','Téléphone','Email','Source'].some(k =>
         String(p[k] || '').toLowerCase().includes(searchQuery));
@@ -1211,8 +1224,17 @@ function getFilteredProspects() {
   });
 }
 
+function toggleRelanceFilter(type) {
+  activeRelanceFilter = activeRelanceFilter === type ? '' : type;
+  currentPage = 0;
+  document.getElementById('chip-relance-today').classList.toggle('active', activeRelanceFilter === 'today');
+  document.getElementById('chip-relance-late').classList.toggle('active', activeRelanceFilter === 'late');
+  renderProspectsTable();
+}
+
 function renderProspectsTable() {
   const today = new Date().toISOString().split('T')[0];
+  const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
   const list = getFilteredProspects();
   const tbody = document.getElementById('prospects-tbody');
   if (!tbody) return;
@@ -1233,10 +1255,22 @@ function renderProspectsTable() {
   const rowsHtml = pageList.map(p => {
     const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8', Nom: p['Statut'] || '—' };
     const isLate = p['Date relance'] && (p['Date relance'] || '').substring(0,10) < today && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']);
+    const isSoon = !isLate && p['Date relance'] && (p['Date relance'] || '').substring(0,10) <= tomorrow && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']);
     const isDrawerSelected = selectedProspect && selectedProspect['ID'] === p['ID'] && drawerOpen;
-    return `<div class="table-row ${isDrawerSelected ? 'drawer-open' : ''} ${p['Statut'] === 'Mise en sommeil' ? 'sommeil' : ''}" onclick="openDrawer('${p['ID']}')">
-      <div><div class="prospect-name">${esc(p['Nom'] || '—')}</div></div>
-      <div><div style="font-size:13px;">${esc(p['Entreprise'] || '—')}</div><div style="font-size:11px;color:var(--text-3)">${esc(p['Secteur'] || '')}</div></div>
+    const rowClass = isDrawerSelected ? 'drawer-open' : isLate ? 'row-late' : isSoon ? 'row-soon' : '';
+    return `<div class="table-row ${rowClass} ${p['Statut'] === 'Mise en sommeil' ? 'sommeil' : ''}" onclick="openDrawer('${p['ID']}')">
+      <div>
+        <div class="prospect-name">${esc(p['Entreprise'] || p['Nom'] || '—')}</div>
+        ${p['Entreprise'] && p['Nom'] && p['Nom'] !== p['Entreprise'] ? `<div style="font-size:11px;color:var(--text-3);margin-top:1px;">${esc(p['Nom'])}</div>` : ''}
+        ${p['Secteur'] ? `<div style="font-size:11px;color:var(--text-3);font-style:italic;">${esc(p['Secteur'])}</div>` : ''}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:flex-start;padding-top:2px;">
+        ${(p['Tags'] || '').split(',').filter(Boolean).map(t => {
+          const tagObj = tags.find(tg => tg['Nom'] === t.trim());
+          const col = tagObj ? tagObj['Couleur'] : '#94A3B8';
+          return `<span style="background:${col}22;color:${col};border:1px solid ${col}44;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:600;">${esc(t.trim())}</span>`;
+        }).join('') || '<span style="color:var(--text-3);font-size:12px;">—</span>'}
+      </div>
       <div onclick="event.stopPropagation()">
         ${p['Téléphone'] ? `<div style="font-size:12px;font-weight:600;color:var(--text);user-select:all;cursor:text;">${formatPhone(p['Téléphone'])}</div>` : ''}
         ${p['Email'] ? `<div style="font-size:11px;color:var(--text-3);margin-top:2px;user-select:all;cursor:text;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(p['Email'])}">${esc(p['Email'])}</div>` : ''}
@@ -1532,11 +1566,11 @@ function renderFullProspect() {
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--border);">
             <div style="padding:10px 18px;${p['Email'] ? 'border-right:1px solid var(--border);' : ''}">
               <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:5px;">Téléphone</div>
-              ${p['Téléphone'] ? `<span style="font-size:13px;font-weight:600;color:var(--navy);user-select:all;cursor:text;">📞 ${formatPhone(p['Téléphone'])}</span>` : `<span style="font-size:13px;color:var(--text-3);">—</span>`}
+              ${p['Téléphone'] ? `<span style="font-size:13px;font-weight:600;color:var(--navy);cursor:pointer;" onclick="copyToClipboard('${p['Téléphone'].replace(/'/g,"\\'")}','Téléphone copié ✓')" title="Cliquer pour copier">📞 ${formatPhone(p['Téléphone'])}</span>` : `<span style="font-size:13px;color:var(--text-3);">—</span>`}
             </div>
             <div style="padding:10px 18px;border-right:1px solid var(--border);">
               <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:5px;">Email</div>
-              ${p['Email'] ? `<a href="mailto:${p['Email']}" style="font-size:13px;font-weight:600;color:var(--navy);text-decoration:none;word-break:break-all;">✉️ ${p['Email']}</a>` : `<span style="font-size:13px;color:var(--text-3);">—</span>`}
+              ${p['Email'] ? `<span style="font-size:13px;font-weight:600;color:var(--navy);cursor:pointer;word-break:break-all;" onclick="copyToClipboard('${p['Email'].replace(/'/g,"\\'")}','Email copié ✓')" title="Cliquer pour copier">✉️ ${esc(p['Email'])}</span>` : `<span style="font-size:13px;color:var(--text-3);">—</span>`}
             </div>
             <div style="padding:10px 18px;">
               <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:5px;">Source</div>
@@ -1613,6 +1647,8 @@ function renderDashboard() {
 
   const lateCount = document.getElementById('late-count');
   if (late.length > 0) { lateCount.textContent = late.length; lateCount.classList.remove('hidden'); } else { lateCount.classList.add('hidden'); }
+  const headerBadge = document.getElementById('header-late-badge');
+  if (headerBadge) { if (late.length > 0) { headerBadge.textContent = late.length; headerBadge.classList.remove('hidden'); } else { headerBadge.classList.add('hidden'); } }
 
   const relEl = document.getElementById('relances-list');
   relEl.innerHTML = late.length === 0 ? '<div class="empty-state">✅ Aucune relance en retard</div>' :
@@ -1663,11 +1699,11 @@ async function saveProspect() {
   if (!data.nom.trim() && !data.entreprise.trim()) { showToast('Le nom ou l\'entreprise est requis', 'error'); return; }
   if (!data.nom.trim()) data.nom = data.entreprise;
   if (!id) {
-    const telNorm = data.telephone ? data.telephone.replace(/\s/g,'') : '';
+    const telNorm = data.telephone ? data.telephone.replace(/\D/g,'') : '';
     const dup = prospects.find(p => {
-      const pTel = p['Téléphone'] ? String(p['Téléphone']).replace(/\s/g,'') : '';
+      const pTel = p['Téléphone'] ? String(p['Téléphone']).replace(/\D/g,'') : '';
       const pEmail = p['Email'] ? String(p['Email']).toLowerCase().trim() : '';
-      return (telNorm.length > 5 && pTel.length > 5 && pTel === telNorm) ||
+      return (telNorm.length >= 9 && pTel.length >= 9 && (pTel === telNorm || pTel.endsWith(telNorm.slice(-9)) || telNorm.endsWith(pTel.slice(-9)))) ||
              (data.email && data.email.trim() && pEmail && pEmail === data.email.toLowerCase().trim());
     });
     if (dup) {
@@ -2986,6 +3022,33 @@ if (checkSession()) {
 } else {
   setTimeout(() => document.getElementById('login-password')?.focus(), 100);
 }
+// ─── COPY TO CLIPBOARD ──────────────────────────────────────
+function copyToClipboard(text, successMsg) {
+  if (!text) return;
+  navigator.clipboard.writeText(text).then(() => {
+    showToast(successMsg || 'Copié ✓', 'success', 1500);
+  }).catch(() => {
+    // Fallback
+    const el = document.createElement('textarea');
+    el.value = text; el.style.position = 'fixed'; el.style.opacity = '0';
+    document.body.appendChild(el); el.select();
+    document.execCommand('copy');
+    document.body.removeChild(el);
+    showToast(successMsg || 'Copié ✓', 'success', 1500);
+  });
+}
+
+// ─── KEYBOARD SHORTCUTS ─────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (!checkSession()) return;
+  const tag = document.activeElement?.tagName;
+  if (['INPUT','TEXTAREA','SELECT'].includes(tag)) return;
+  if (e.key === 'N' || e.key === 'n') {
+    const anyModal = document.querySelector('.modal-overlay:not(.hidden)');
+    if (!anyModal) { e.preventDefault(); openNewProspect(); }
+  }
+});
+
 </script>
 
 <!-- Modal edit offre -->
