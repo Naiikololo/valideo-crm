@@ -1991,7 +1991,7 @@ async function confirmMeet() {
   const pidxM = prospects.findIndex(pr => pr['ID'] == p['ID']);
   if (pidxM !== -1) prospects[pidxM]['Dernière activité'] = todayStr;
   if (selectedProspect?.['ID'] == p['ID']) selectedProspect['Dernière activité'] = todayStr;
-  if (result.meetLink) setTimeout(() => window.open(result.meetLink, '_blank'), 500);
+  if (result.meetLink) showToast('✅ Google Meet créé', 'success', 4000);
 }
 
 function openRelanceModal() {
@@ -2631,13 +2631,8 @@ function renderResumeCard(p) {
     const evtIcon = nextEvt['Type'] === 'meet' ? '📹' : '📅';
     const evtLabel = nextEvt['Type'] === 'meet' ? 'Meet planifié' : 'Relance planifiée';
     html += `<div class="right-item"><div class="right-item-label">${evtIcon} ${evtLabel}</div><div class="right-item-value orange">${formatDate(nextEvt['Date'])}${nextEvt['Heure'] ? ' à ' + nextEvt['Heure'] : ''}</div></div>`;
-    if (nextEvt['LienMeet']) html += `<div style="margin-bottom:6px;"><a href="${nextEvt['LienMeet']}" target="_blank" style="font-size:11px;color:#3B82F6;">🔗 Rejoindre le Meet</a></div>`;
   } else if (p['Date relance']) {
-    html += `<div class="right-item"><div class="right-item-label">Prochaine relance</div><div class="right-item-value ${isLate ? 'danger' : 'orange'}">${isLate ? '⚠️ ' : '📅 '}${formatDate(p['Date relance'])}</div></div>`;
-  }
-
-  if (p['Motif perte']) {
-    html += `<div style="background:#EF444410;border:1px solid #EF444425;border-radius:8px;padding:8px 12px;margin-top:8px;"><div style="font-size:10px;font-weight:700;color:#EF4444;margin-bottom:2px;">Motif de perte</div><div style="font-size:12px;color:var(--text-2);">${p['Motif perte']}</div></div>`;
+    html += `<div class="right-item"><div class="right-item-label">📅 Prochaine relance</div><div class="right-item-value ${isLate ? 'danger' : 'orange'}">${isLate ? '⚠️ ' : ''}${formatDate(p['Date relance'])}</div></div>`;
   }
 
   return html;
