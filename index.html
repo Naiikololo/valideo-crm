@@ -1565,11 +1565,11 @@ function renderFullProspect() {
           <div style="display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--border);">
             <div style="padding:10px 18px;${p['Email'] ? 'border-right:1px solid var(--border);' : ''}">
               <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:5px;">Téléphone</div>
-              ${p['Téléphone'] ? `<span style="font-size:13px;font-weight:600;color:var(--navy);cursor:pointer;" onclick="copyToClipboard('${p['Téléphone'].replace(/'/g,"\\'")}','Téléphone copié ✓')" title="Cliquer pour copier">📞 ${formatPhone(p['Téléphone'])}</span>` : `<span style="font-size:13px;color:var(--text-3);">—</span>`}
+              ${p['Téléphone'] ? `<span style="font-size:13px;font-weight:600;color:var(--navy);cursor:pointer;" onclick="copyToClipboard('${String(p['Téléphone']).replace(/'/g,"\\'")}','Téléphone copié ✓')" title="Cliquer pour copier">📞 ${formatPhone(p['Téléphone'])}</span>` : `<span style="font-size:13px;color:var(--text-3);">—</span>`}
             </div>
             <div style="padding:10px 18px;border-right:1px solid var(--border);">
               <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:5px;">Email</div>
-              ${p['Email'] ? `<span style="font-size:13px;font-weight:600;color:var(--navy);cursor:pointer;word-break:break-all;" onclick="copyToClipboard('${p['Email'].replace(/'/g,"\\'")}','Email copié ✓')" title="Cliquer pour copier">✉️ ${esc(p['Email'])}</span>` : `<span style="font-size:13px;color:var(--text-3);">—</span>`}
+              ${p['Email'] ? `<span style="font-size:13px;font-weight:600;color:var(--navy);cursor:pointer;word-break:break-all;" onclick="copyToClipboard('${String(p['Email']).replace(/'/g,"\\'")}','Email copié ✓')" title="Cliquer pour copier">✉️ ${esc(p['Email'])}</span>` : `<span style="font-size:13px;color:var(--text-3);">—</span>`}
             </div>
             <div style="padding:10px 18px;">
               <div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:5px;">Source</div>
@@ -1706,7 +1706,7 @@ async function saveProspect() {
              (data.email && data.email.trim() && pEmail && pEmail === data.email.toLowerCase().trim());
     });
     if (dup) {
-      const ok = await showConfirm(`Un prospect similaire existe déjà : <strong>${esc(dup['Nom'])}</strong>.<br>Même ${telNorm && dup['Téléphone']?.replace(/\s/g,'') === telNorm ? 'téléphone' : 'email'}. Créer quand même ?`, 'Doublon détecté', 'Créer quand même');
+      const ok = await showConfirm(`Un prospect similaire existe déjà : <strong>${esc(dup['Nom'])}</strong>.<br>Même ${telNorm && String(dup['Téléphone']||'').replace(/\s/g,'') === telNorm ? 'téléphone' : 'email'}. Créer quand même ?`, 'Doublon détecté', 'Créer quand même');
       if (!ok) return;
     }
   }
