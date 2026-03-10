@@ -611,9 +611,10 @@
         <div class="filter-select-wrap">
           <select class="filter-select" id="filter-offres" onchange="setOffreFilter(this.value)">
             <option value="">Offre</option>
-            <option>Starter (9€ HT)</option>
-            <option>Premium (30€ HT)</option>
-            <option>Entreprise (99€ HT)</option>
+            <option>Découverte</option>
+            <option>Starter</option>
+            <option>Premium</option>
+            <option>Entreprise</option>
             <option>Sur devis</option>
           </select>
         </div>
@@ -916,9 +917,10 @@
       <label class="modal-label">Offre</label>
       <select class="modal-select" id="client-offre-select">
         <option value="">-- Choisir l'offre --</option>
-        <option>Starter (9€ HT)</option>
-        <option>Premium (30€ HT)</option>
-        <option>Entreprise (99€ HT)</option>
+        <option>Découverte</option>
+        <option>Starter</option>
+        <option>Premium</option>
+        <option>Entreprise</option>
         <option>Sur devis</option>
       </select>
     </div>
@@ -961,6 +963,8 @@ const API_URL = 'https://script.google.com/a/macros/valideo.app/s/AKfycbxUgS2ST_
 
 let prospects = [], statuts = [], tags = [], parametres = {}, appelsCache = {}, evenementsCache = {};
 let selectedProspect = null;
+let currentPage = 0;
+const PAGE_SIZE = 50;
 let activeStatutFilter = 'Tous', activeTagFilter = '', activeOffreFilter = '';
 let searchQuery = '';
 let pendingMotifStatus = '', pendingProspectId = '';
@@ -1042,14 +1046,24 @@ function init() {
   });
 }
 
-async function loadProspects() { const d = await api('getProspects'); prospects = Array.isArray(d) ? d : []; }
+async function loadProspects() {
+  const d = await api('getProspects');
+  prospects = Array.isArray(d) ? d : [];
+  // Migration offres : anciens formats avec prix → noms courts
+  const offreMap = { 'Starter (9€ HT)': 'Starter', 'Premium (30€ HT)': 'Premium', 'Entreprise (99€ HT)': 'Entreprise' };
+  prospects.forEach(p => {
+    if (p['Offre intéressée'] && offreMap[p['Offre intéressée']]) {
+      p['Offre intéressée'] = offreMap[p['Offre intéressée']];
+    }
+  });
+}
 
 function preloadRecentProspects() {
   // Sort by most recent activity, preload top 8 not yet cached
   const toLoad = [...prospects]
     .filter(p => !appelsCache[p['ID']] || !evenementsCache[p['ID']])
     .sort((a, b) => (b['Dernière activité'] || '').localeCompare(a['Dernière activité'] || ''))
-    .slice(0, 8);
+    .slice(0, 3);
   if (!toLoad.length) return;
   let i = 0;
   function loadNext() {
@@ -1069,9 +1083,9 @@ function preloadRecentProspects() {
         if (banner) banner.remove();
       }
     });
-    setTimeout(loadNext, 900); // throttle: 1 per 900ms
+    setTimeout(loadNext, 1500); // throttle: 1 per 1500ms
   }
-  setTimeout(loadNext, 2000); // start 2s after page ready
+  setTimeout(loadNext, 3000); // start 3s after page ready
 }
 async function loadStatuts() { const d = await api('getStatuts'); statuts = Array.isArray(d) ? d : []; }
 async function loadTags() { const d = await api('getTags'); tags = Array.isArray(d) ? d : []; }
@@ -1101,9 +1115,14 @@ function toggleSettings() {
 }
 
 // ─── SEARCH ────────────────────────────────────────────────
+let _searchTimer = null;
 function onSearch() {
-  searchQuery = document.getElementById('search-input').value.toLowerCase();
-  renderProspectsTable();
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(() => {
+    searchQuery = document.getElementById('search-input').value.toLowerCase();
+    currentPage = 0;
+    renderProspectsTable();
+  }, 250);
 }
 
 // ─── FILTER CHIPS ──────────────────────────────────────────
@@ -1121,8 +1140,8 @@ function renderFilterChips() {
   }
   renderOffreChips();
 }
-function setStatutFilter(f) { activeStatutFilter = f; renderFilterChips(); renderProspectsTable(); }
-function setOffreFilter(f) { activeOffreFilter = f; renderOffreChips(); renderProspectsTable(); }
+function setStatutFilter(f) { activeStatutFilter = f; currentPage = 0; renderFilterChips(); renderProspectsTable(); }
+function setOffreFilter(f) { activeOffreFilter = f; currentPage = 0; renderOffreChips(); renderProspectsTable(); }
 function renderOffreChips() {
   const el = document.getElementById('filter-offres');
   if (el) {
@@ -1130,7 +1149,7 @@ function renderOffreChips() {
     el.className = 'filter-select' + (activeOffreFilter ? ' active' : '');
   }
 }
-function setTagFilter(f) { activeTagFilter = f; renderFilterChips(); renderProspectsTable(); }
+function setTagFilter(f) { activeTagFilter = f; currentPage = 0; renderFilterChips(); renderProspectsTable(); }
 
 // ─── PROSPECTS TABLE ───────────────────────────────────────
 function getFilteredProspects() {
@@ -1157,21 +1176,34 @@ function renderProspectsTable() {
   const list = getFilteredProspects();
   const tbody = document.getElementById('prospects-tbody');
   if (!tbody) return;
+
+  const totalPages = Math.ceil(list.length / PAGE_SIZE);
+  if (currentPage >= totalPages) currentPage = Math.max(0, totalPages - 1);
+
+  const start = currentPage * PAGE_SIZE;
+  const pageList = list.slice(start, start + PAGE_SIZE);
+
   if (!list.length) { tbody.innerHTML = '<div class="empty-state">Aucun prospect trouvé</div>'; return; }
-  tbody.innerHTML = list.map(p => {
+
+  const counterHtml = `<div style="padding:8px 16px;font-size:12px;color:var(--text-3);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;">
+    <span>${list.length} prospect${list.length > 1 ? 's' : ''}${activeStatutFilter !== 'Tous' || activeTagFilter || activeOffreFilter || searchQuery ? ' (filtré' + (list.length > 1 ? 's' : '') + ')' : ''}</span>
+    ${totalPages > 1 ? `<span>Page ${currentPage + 1} / ${totalPages}</span>` : ''}
+  </div>`;
+
+  const rowsHtml = pageList.map(p => {
     const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8', Nom: p['Statut'] || '—' };
     const isLate = p['Date relance'] && (p['Date relance'] || '').substring(0,10) < today && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']);
     const isDrawerSelected = selectedProspect && selectedProspect['ID'] === p['ID'] && drawerOpen;
     return `<div class="table-row ${isDrawerSelected ? 'drawer-open' : ''} ${p['Statut'] === 'Mise en sommeil' ? 'sommeil' : ''}" onclick="openDrawer('${p['ID']}')">
-      <div><div class="prospect-name">${p['Nom'] || '—'}</div></div>
-      <div><div style="font-size:13px;">${p['Entreprise'] || '—'}</div><div style="font-size:11px;color:var(--text-3)">${p['Secteur'] || ''}</div></div>
+      <div><div class="prospect-name">${esc(p['Nom'] || '—')}</div></div>
+      <div><div style="font-size:13px;">${esc(p['Entreprise'] || '—')}</div><div style="font-size:11px;color:var(--text-3)">${esc(p['Secteur'] || '')}</div></div>
       <div onclick="event.stopPropagation()">
         ${p['Téléphone'] ? `<div style="font-size:12px;font-weight:600;color:var(--text);user-select:all;cursor:text;">${formatPhone(p['Téléphone'])}</div>` : ''}
-        ${p['Email'] ? `<div style="font-size:11px;color:var(--text-3);margin-top:2px;user-select:all;cursor:text;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${p['Email']}">${p['Email']}</div>` : ''}
+        ${p['Email'] ? `<div style="font-size:11px;color:var(--text-3);margin-top:2px;user-select:all;cursor:text;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(p['Email'])}">${esc(p['Email'])}</div>` : ''}
         ${!p['Téléphone'] && !p['Email'] ? `<span style="color:var(--text-3);">—</span>` : ''}
       </div>
-      <div><span class="badge" style="background:${statut.Couleur}22;color:${statut.Couleur};border:1px solid ${statut.Couleur}44;"><span class="badge-dot" style="background:${statut.Couleur}"></span>${statut.Nom}</span></div>
-      <div style="font-size:12px;color:var(--text-2);">${p['Offre intéressée'] || '—'}</div>
+      <div><span class="badge" style="background:${statut.Couleur}22;color:${statut.Couleur};border:1px solid ${statut.Couleur}44;"><span class="badge-dot" style="background:${statut.Couleur}"></span>${esc(statut.Nom)}</span></div>
+      <div style="font-size:12px;color:var(--text-2);">${esc(p['Offre intéressée'] || '—')}</div>
       <div>${p['Date relance'] ? `<span class="relance-chip ${isLate ? 'late' : 'ok'}">${isLate ? '⚠️ ' : '📅 '}${formatDate(p['Date relance'])}</span>` : '<span style="color:var(--text-3);font-size:12px;">—</span>'}</div>
       <div style="display:flex;gap:4px;" onclick="event.stopPropagation()">
         <button class="btn-open-drawer" onclick="openDrawer('${p['ID']}')">Résumé</button>
@@ -1179,6 +1211,23 @@ function renderProspectsTable() {
       </div>
     </div>`;
   }).join('');
+
+  let paginationHtml = '';
+  if (totalPages > 1) {
+    paginationHtml = `<div style="padding:10px 16px;border-top:1px solid var(--border);display:flex;justify-content:center;align-items:center;gap:8px;">
+      <button class="btn-open-drawer" onclick="goPage(${currentPage - 1})" ${currentPage === 0 ? 'disabled style="opacity:0.3;pointer-events:none;"' : ''}>← Précédent</button>
+      <span style="font-size:12px;color:var(--text-3);min-width:80px;text-align:center;">Page ${currentPage + 1} / ${totalPages}</span>
+      <button class="btn-open-drawer" onclick="goPage(${currentPage + 1})" ${currentPage >= totalPages - 1 ? 'disabled style="opacity:0.3;pointer-events:none;"' : ''}>Suivant →</button>
+    </div>`;
+  }
+
+  tbody.innerHTML = counterHtml + rowsHtml + paginationHtml;
+}
+
+function goPage(page) {
+  currentPage = Math.max(0, page);
+  renderProspectsTable();
+  document.getElementById('main')?.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 // ─── DRAWER ────────────────────────────────────────────────
@@ -1254,14 +1303,14 @@ function renderDrawer() {
         appels.slice(0, 3).map(a => `
           <div class="call-log-item">
             <div class="call-log-date">${formatDate(a['Date'])} ${formatHeure(a['Heure'])}</div>
-            <div class="call-log-note">${a['Note'] || '—'}</div>
+            <div class="call-log-note">${esc(a['Note'] || '—')}</div>
           </div>`).join('')}
       ${appels.length > 3 ? `<div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:6px;">+${appels.length - 3} autres — voir la fiche complète</div>` : ''}
     </div>
 
     ${p['Notes permanentes'] ? `<div class="drawer-section">
       <div class="drawer-section-title">Notes</div>
-      <div style="font-size:12px;color:var(--text-2);line-height:1.6;">${p['Notes permanentes']}</div>
+      <div style="font-size:12px;color:var(--text-2);line-height:1.6;">${esc(p['Notes permanentes'])}</div>
     </div>` : ''}
   `;
 }
@@ -1742,7 +1791,7 @@ function cancelEditCall(id) {
 function saveEditCall(id) {
   const note = document.getElementById('call-note-edit-' + id)?.value || '';
   const viewEl = document.getElementById('call-note-view-' + id);
-  if (viewEl) viewEl.innerHTML = note || '<span style="color:var(--text-3);font-style:italic;font-size:12px;">Aucune note</span>';
+  if (viewEl) viewEl.innerHTML = esc(note) || '<span style="color:var(--text-3);font-style:italic;font-size:12px;">Aucune note</span>';
   if (selectedProspect && appelsCache[selectedProspect['ID']]) {
     const ci = appelsCache[selectedProspect['ID']].findIndex(c => c['ID'] == id);
     if (ci !== -1) appelsCache[selectedProspect['ID']][ci]['Note'] = note;
@@ -1799,6 +1848,11 @@ async function deleteProspect() {
 
   const pid = p['ID'];
 
+  // Save for rollback
+  const deletedProspect = { ...p };
+  const deletedAppels = appelsCache[pid] ? [...appelsCache[pid]] : null;
+  const deletedEvents = evenementsCache[pid] ? [...evenementsCache[pid]] : null;
+
   // Optimistic: remove from list + close views
   prospects = prospects.filter(pr => pr['ID'] != pid);
   delete appelsCache[pid];
@@ -1813,8 +1867,11 @@ async function deleteProspect() {
   api('deleteProspect', { id: pid }).then(r => {
     if (r?.error) {
       showToast('❌ Erreur suppression : ' + r.error, 'error');
-      // Reload to restore state
-      loadProspects().then(() => { renderProspectsTable(); renderDashboard(); });
+      // Rollback local
+      prospects.push(deletedProspect);
+      if (deletedAppels) appelsCache[pid] = deletedAppels;
+      if (deletedEvents) evenementsCache[pid] = deletedEvents;
+      renderProspectsTable(); renderDashboard();
     }
   });
 }
@@ -1881,6 +1938,10 @@ async function confirmMeet() {
     }
   });
   showToast('✅ Google Meet créé et invitation envoyée', 'success');
+  const todayStr = new Date().toISOString().split('T')[0];
+  const pidxM = prospects.findIndex(pr => pr['ID'] == p['ID']);
+  if (pidxM !== -1) prospects[pidxM]['Dernière activité'] = todayStr;
+  if (selectedProspect?.['ID'] == p['ID']) selectedProspect['Dernière activité'] = todayStr;
   if (result.meetLink) setTimeout(() => window.open(result.meetLink, '_blank'), 500);
 }
 
@@ -1917,6 +1978,10 @@ async function confirmRelance() {
     _creatingRelance = false;
     if (r?.error) { showToast('❌ Erreur Calendar : ' + r.error, 'error'); return; }
     showToast('✅ Relance planifiée dans Calendar', 'success');
+    const todayStr2 = new Date().toISOString().split('T')[0];
+    const pidxR = prospects.findIndex(pr => pr['ID'] == p['ID']);
+    if (pidxR !== -1) prospects[pidxR]['Dernière activité'] = todayStr2;
+    if (selectedProspect?.['ID'] == p['ID']) selectedProspect['Dernière activité'] = todayStr2;
     const pid3 = p['ID'];
     loadEvenements(pid3).then(() => {
       if (currentView === 'prospect') {
@@ -2129,33 +2194,6 @@ function dndTagDrop(e, targetId) {
   _dndTagDragId = null;
 }
 
-async function changePassword() {
-  const p1 = document.getElementById('new-pwd-1').value;
-  const p2 = document.getElementById('new-pwd-2').value;
-  const errEl = document.getElementById('pwd-change-error');
-  errEl.textContent = '';
-
-  if (!p1) { errEl.textContent = 'Saisis un nouveau mot de passe'; return; }
-  if (p1.length < 8) { errEl.textContent = 'Minimum 8 caractères'; return; }
-  if (p1 !== p2) { errEl.textContent = 'Les mots de passe ne correspondent pas'; return; }
-
-  const btn = event.currentTarget;
-  btn.textContent = 'Enregistrement…';
-  btn.disabled = true;
-
-  const newHash = await hashPassword(p1);
-  const r = await api('updatePassword', { newHash });
-
-  btn.textContent = 'Enregistrer le nouveau mot de passe';
-  btn.disabled = false;
-
-  if (r?.error) { errEl.textContent = '❌ ' + r.error; return; }
-
-  // Session stays valid (apiKey unchanged), only server hash changes
-  document.getElementById('new-pwd-1').value = '';
-  document.getElementById('new-pwd-2').value = '';
-  showToast('✅ Mot de passe mis à jour. Actif dès la prochaine connexion.', 'success', 5000);
-}
 
 let saveParamTimer = {};
 function saveParam(cle, valeur) {
@@ -2183,15 +2221,28 @@ function updateStatutColor(id, couleur) {
   });
 }
 async function deleteStatutOptimistic(id) {
-  const okS = await showConfirm('Supprimer ce statut ? Les prospects avec ce statut ne seront pas affectés.', 'Supprimer un statut', 'Supprimer', true);
-  if (!okS) return;
   const deletedStatut = statuts.find(s => s['ID'] == id);
+  const affectedCount = prospects.filter(p => p['Statut'] === deletedStatut?.['Nom']).length;
+  const warningMsg = affectedCount > 0
+    ? `Supprimer le statut « ${deletedStatut['Nom']} » ?<br><strong>${affectedCount} prospect${affectedCount > 1 ? 's' : ''}</strong> ${affectedCount > 1 ? 'seront remis' : 'sera remis'} en « Prospect froid ».`
+    : `Supprimer le statut « ${deletedStatut?.['Nom']} » ?`;
+  const okS = await showConfirm(warningMsg, 'Supprimer un statut', 'Supprimer', true);
+  if (!okS) return;
   statuts = statuts.filter(s => s['ID'] != id);
   document.getElementById('statut-row-' + id)?.remove();
   // Reset filter if current filter was the deleted statut
   if (deletedStatut && activeStatutFilter === deletedStatut['Nom']) {
     activeStatutFilter = 'Tous';
     showToast('Filtre réinitialisé (statut supprimé)', '');
+  }
+  // Migrer les prospects orphelins vers "Prospect froid"
+  if (deletedStatut && affectedCount > 0) {
+    prospects.forEach(p => {
+      if (p['Statut'] === deletedStatut['Nom']) {
+        p['Statut'] = 'Prospect froid';
+        api('updateProspect', { id: p['ID'], statut: 'Prospect froid' });
+      }
+    });
   }
   renderFilterChips(); renderProspectsTable();
   showToast('Statut supprimé ✓', 'success');
@@ -2213,15 +2264,37 @@ async function saveTag() {
 async function deleteTagOptimistic(id) {
   const okT = await showConfirm('Supprimer ce tag ?', 'Supprimer un tag', 'Supprimer', true);
   if (!okT) return;
+  const deletedTag = tags.find(t => t['ID'] == id);
+  const tagName = deletedTag?.['Nom'];
   tags = tags.filter(t => t['ID'] != id);
   document.getElementById('tag-row-' + id)?.remove();
+  // Nettoyer le tag des prospects qui l'avaient
+  if (tagName) {
+    prospects.forEach(p => {
+      if (p['Tags'] && p['Tags'].split(',').includes(tagName)) {
+        const newTags = p['Tags'].split(',').filter(t => t !== tagName).join(',');
+        p['Tags'] = newTags;
+        api('updateProspect', { id: p['ID'], tags: newTags });
+      }
+    });
+    if (selectedProspect?.['Tags']?.split(',').includes(tagName)) {
+      selectedProspect['Tags'] = selectedProspect['Tags'].split(',').filter(t => t !== tagName).join(',');
+    }
+  }
   renderFilterChips(); renderProspectsTable();
+  if (currentView === 'prospect') renderFullProspect();
   showToast('Tag supprimé ✓', 'success');
   api('deleteTag', { id });
 }
 async function deleteTag(id) { deleteTagOptimistic(id); }
 
 // ─── UTILS ─────────────────────────────────────────────────
+function esc(s) {
+  if (!s) return '';
+  const d = document.createElement('div');
+  d.textContent = String(s);
+  return d.innerHTML;
+}
 function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 document.querySelectorAll('.modal-overlay').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.add('hidden'); }));
 
@@ -2288,7 +2361,8 @@ function confirmEventDateEdit() {
     if (!call) return;
     call['Date'] = newDate;
     call['Heure'] = newHeure || '';
-    renderUnifiedTimeline(pid);
+    const tl = document.getElementById('unified-timeline');
+    if (tl) tl.innerHTML = renderUnifiedTimeline(pid);
     showToast('Date mise à jour ✓', 'success');
     api('updateAppel', { id: callId, date: newDate, heure: newHeure || '', note: call['Note'] || '' })
       .then(r => { if (r?.error) showToast('❌ ' + r.error, 'error'); });
@@ -2455,11 +2529,11 @@ async function saveEventNote() {
 }
 
 let toastTimer;
-function showToast(msg, type = '') {
+function showToast(msg, type = '', customDuration) {
   const el = document.getElementById('toast');
   el.textContent = msg; el.className = 'show' + (type ? ' ' + type : '');
   clearTimeout(toastTimer);
-  const duration = type === 'error' ? 6000 : 3000;
+  const duration = customDuration || (type === 'error' ? 6000 : 3000);
   toastTimer = setTimeout(() => el.className = '', duration);
 }
 
@@ -2563,7 +2637,7 @@ function renderEventsRightPanel(pid) {
         📆 ${formatDate(e['Date'])}${e['Heure'] ? ' à ' + formatHeure(e['Heure']) : ''}
       </div>
       ${e['LienMeet'] ? `<a class="meet-link" href="${e['LienMeet']}" target="_blank" style="display:inline-block;margin-bottom:6px;">🔗 Rejoindre le Meet</a>` : ''}
-      ${e['Note'] ? `<div style="font-size:11px;color:var(--text-2);line-height:1.5;border-top:1px solid ${accentColor}22;padding-top:6px;margin-top:4px;">${e['Note']}</div>` : ''}
+      ${e['Note'] ? `<div style="font-size:11px;color:var(--text-2);line-height:1.5;border-top:1px solid ${accentColor}22;padding-top:6px;margin-top:4px;">${esc(e['Note'])}</div>` : ''}
       <div style="display:flex;gap:6px;margin-top:8px;justify-content:flex-end;flex-wrap:wrap;">
         <button class="btn-mini" style="background:#1A3C5E15;color:var(--navy);border:1px solid #1A3C5E33;" onclick="openEventNote('${e['ID']}', '${pid}')">📝 Notes</button>
         ${e['EventID_Calendar'] ? `<button class="btn-mini" onclick="editEvenementCalendar('${e['ID']}','${e['EventID_Calendar']}','${e['Type']}','${e['Date']}','${e['Heure']}')" title="Modifier date/heure">🕐 Modifier</button>` : ''}
@@ -2643,7 +2717,7 @@ function renderUnifiedTimeline(pid) {
                 <button class="btn-mini" style="color:var(--danger);" onclick="deleteCall('${item['ID']}')">🗑️</button>
               </div>
             </div>
-            <div class="call-note" id="call-note-view-${item['ID']}">${item['Note'] || ''}</div>
+            <div class="call-note" id="call-note-view-${item['ID']}">${esc(item['Note'] || '')}</div>
             <textarea class="call-note-input hidden" id="call-note-edit-${item['ID']}" onblur="saveEditCall('${item['ID']}')">${item['Note'] || ''}</textarea>
           </div>
         </div>`;
@@ -2699,23 +2773,7 @@ function saveEvenementNote(id) {
 }
 
 function editEvenementCalendar(evenementId, eventIdCalendar, type, currentDate, currentHeure) {
-  editEvenementCalendarModal(evenementId, eventIdCalendar, type, currentDate, currentHeure); return;
-  const newDate = ''; const newHeure = '';
-  const pid = selectedProspect['ID'];
-  if (evenementsCache[pid]) { const i = evenementsCache[pid].findIndex(e => e['ID'] == evenementId); if (i !== -1) { evenementsCache[pid][i]['Date'] = newDate; evenementsCache[pid][i]['Heure'] = newHeure; } }
-  // Update prospect date relance if it's a relance
-  if (type === 'relance') {
-    selectedProspect['Date relance'] = newDate;
-    const idx = prospects.findIndex(p => p['ID'] == pid); if (idx !== -1) prospects[idx]['Date relance'] = newDate;
-    renderProspectsTable(); renderDashboard();
-    api('updateProspect', { id: pid, dateRelance: newDate });
-  }
-  document.getElementById('unified-timeline').innerHTML = renderUnifiedTimeline(pid);
-  showToast('Mise à jour en cours...', '');
-  const action = type === 'meet' ? 'updateMeetCalendar' : 'updateRelanceCalendar';
-  api(action, { evenementId, eventIdCalendar, newDate, newHeure }).then(r => {
-    showToast(r.error ? r.error : 'Calendar mis à jour ✓', r.error ? 'error' : 'success');
-  });
+  editEvenementCalendarModal(evenementId, eventIdCalendar, type, currentDate, currentHeure);
 }
 
 async function deleteEvenement(evenementId, eventIdCalendar, type) {
@@ -2725,6 +2783,15 @@ async function deleteEvenement(evenementId, eventIdCalendar, type) {
   if (evenementsCache[pid]) evenementsCache[pid] = evenementsCache[pid].filter(e => e['ID'] != evenementId);
   document.getElementById('unified-timeline').innerHTML = renderUnifiedTimeline(pid);
   const rcDel = document.getElementById('events-right-card'); if (rcDel) rcDel.innerHTML = renderEventsRightPanel(pid);
+  // Si c'est une relance, vider la date relance du prospect
+  if (type === 'relance') {
+    const pidx = prospects.findIndex(p => p['ID'] == pid);
+    if (pidx !== -1) prospects[pidx]['Date relance'] = '';
+    if (selectedProspect?.['ID'] == pid) selectedProspect['Date relance'] = '';
+    renderProspectsTable(); renderDashboard();
+    if (drawerOpen) renderDrawer();
+    api('updateProspect', { id: pid, dateRelance: '' });
+  }
   showToast('Suppression en cours...', 'success');
   const action = eventIdCalendar ? (type === 'meet' ? 'deleteMeetCalendar' : 'deleteRelanceCalendar') : 'deleteEvenement';
   const params = eventIdCalendar ? { evenementId, eventIdCalendar } : { id: evenementId };
@@ -2805,7 +2872,7 @@ async function doLogin() {
 
   const serverData = await new Promise(resolve => {
     const cbName = 'cb_pwd_' + Date.now();
-    const params = new URLSearchParams({ action: 'checkPassword', callback: cbName });
+    const params = new URLSearchParams({ action: 'checkPassword', callback: cbName, hash: hash });
     const script = document.createElement('script');
     const timer = setTimeout(() => { delete window[cbName]; script.remove(); resolve(null); }, 10000);
     window[cbName] = (r) => { clearTimeout(timer); delete window[cbName]; script.remove(); resolve(r); };
@@ -2821,13 +2888,13 @@ async function doLogin() {
     return;
   }
 
-  if (hash === serverData.hash) {
+  if (serverData.success && serverData.apiKey) {
     saveSession(serverData.apiKey);
     document.getElementById('login-screen').classList.add('hidden');
     errEl.textContent = '';
     init();
   } else {
-    errEl.textContent = 'Mot de passe incorrect';
+    errEl.textContent = serverData.error || 'Mot de passe incorrect';
     inputEl.value = '';
     inputEl.classList.add('error');
     inputEl.focus();
