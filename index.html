@@ -790,7 +790,7 @@
       </datalist>
     </div>
     <div class="modal-field"><label class="modal-label">Téléphone</label><input class="modal-input" id="p-telephone" placeholder="06 XX XX XX XX" oninput="this.value=this.value.replace(/[^\d\s+]/g,'')" onblur="this.value=formatPhone(this.value)"></div>
-    <div class="modal-field"><label class="modal-label">Email</label><input class="modal-input" id="p-email" placeholder="jean@dupont.fr" type="email"></div>
+    <div class="modal-field"><label class="modal-label">Email</label><input class="modal-input" id="p-email" placeholder="jean@dupont.fr"></div>
     <div class="modal-field"><label class="modal-label">Source</label>
       <select class="modal-select" id="p-source">
         <option value="">-- Choisir --</option>
@@ -925,7 +925,7 @@
 </div>
 
 <!-- MODAL CONFIRM BRANDED -->
-<div id="modal-confirm" class="modal-overlay hidden">
+<div id="modal-confirm" class="modal-overlay hidden" onclick="if(event.target===this)confirmResolve(false)">
   <div class="modal" style="max-width:420px;">
     <div class="modal-title" id="confirm-title" style="font-size:16px;">Confirmer</div>
     <div id="confirm-message" style="font-size:14px;color:var(--text-2);margin-bottom:20px;line-height:1.6;"></div>
@@ -1654,6 +1654,7 @@ function openEditProspect() {
 }
 
 async function saveProspect() {
+  try {
   const id = document.getElementById('edit-prospect-id').value;
   const data = { nom: document.getElementById('p-nom').value, entreprise: document.getElementById('p-entreprise').value,
     secteur: document.getElementById('p-secteur').value, telephone: formatPhone(document.getElementById('p-telephone').value),
@@ -1662,12 +1663,15 @@ async function saveProspect() {
   if (!data.nom.trim() && !data.entreprise.trim()) { showToast('Le nom ou l\'entreprise est requis', 'error'); return; }
   if (!data.nom.trim()) data.nom = data.entreprise;
   if (!id) {
-    const dup = prospects.find(p => 
-      (data.telephone && data.telephone.replace(/\s/g,'').length > 5 && p['Téléphone'] && p['Téléphone'].replace(/\s/g,'') === data.telephone.replace(/\s/g,'')) ||
-      (data.email && data.email.trim() && p['Email'] && p['Email'].toLowerCase().trim() === data.email.toLowerCase().trim())
-    );
+    const telNorm = data.telephone ? data.telephone.replace(/\s/g,'') : '';
+    const dup = prospects.find(p => {
+      const pTel = p['Téléphone'] ? String(p['Téléphone']).replace(/\s/g,'') : '';
+      const pEmail = p['Email'] ? String(p['Email']).toLowerCase().trim() : '';
+      return (telNorm.length > 5 && pTel.length > 5 && pTel === telNorm) ||
+             (data.email && data.email.trim() && pEmail && pEmail === data.email.toLowerCase().trim());
+    });
     if (dup) {
-      const ok = await showConfirm(`Un prospect similaire existe déjà : <strong>${dup['Nom']}</strong>.<br>Veux-tu quand même créer ce prospect ?`, 'Doublon détecté', 'Créer quand même');
+      const ok = await showConfirm(`Un prospect similaire existe déjà : <strong>${esc(dup['Nom'])}</strong>.<br>Même ${telNorm && dup['Téléphone']?.replace(/\s/g,'') === telNorm ? 'téléphone' : 'email'}. Créer quand même ?`, 'Doublon détecté', 'Créer quand même');
       if (!ok) return;
     }
   }
@@ -1699,6 +1703,7 @@ async function saveProspect() {
       }
     });
   }
+  } catch(e) { showToast('❌ Erreur : ' + e.message, 'error'); console.error('saveProspect error:', e); }
 }
 
 function changeStatut(statut) {
