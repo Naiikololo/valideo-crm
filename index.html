@@ -86,10 +86,10 @@
   .chip:hover:not(.active) { border-color: var(--navy); color: var(--navy); }
   .chip-tag { border-radius: 6px; }
   .prospects-table { background: var(--surface); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
-  .table-header { display: grid; grid-template-columns: 1.8fr 1.2fr 1.4fr 1fr 1fr 1fr 110px; gap: 0;
+  .table-header { display: grid; grid-template-columns: 1.6fr 0.9fr 1fr 1.4fr 1fr 1fr 1fr 110px; gap: 0;
     padding: 10px 16px; background: var(--bg); border-bottom: 1px solid var(--border);
     font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.6px; }
-  .table-row { display: grid; grid-template-columns: 1.8fr 1.2fr 1.4fr 1fr 1fr 1fr 110px; gap: 0;
+  .table-row { display: grid; grid-template-columns: 1.6fr 0.9fr 1fr 1.4fr 1fr 1fr 1fr 110px; gap: 0;
     padding: 12px 16px; border-bottom: 1px solid var(--border-light); align-items: center;
     cursor: pointer; transition: background 0.12s; overflow: visible; }
   .table-row:last-child { border-bottom: none; }
@@ -632,7 +632,7 @@
       </div>
       <div class="prospects-table">
         <div class="table-header">
-          <div>Prospect</div><div>Tags</div><div>Contact</div><div>Statut</div>
+          <div>Prospect</div><div>Secteur</div><div>Tags</div><div>Contact</div><div>Statut</div>
           <div>Offre</div><div>Relance</div><div></div>
         </div>
         <div id="prospects-tbody"></div>
@@ -1260,9 +1260,9 @@ function renderProspectsTable() {
     return `<div class="table-row ${rowClass} ${p['Statut'] === 'Mise en sommeil' ? 'sommeil' : ''}" onclick="openDrawer('${p['ID']}')">
       <div>
         <div class="prospect-name">${esc(p['Entreprise'] || p['Nom'] || '—')}</div>
-        ${p['Entreprise'] && p['Nom'] && p['Nom'] !== p['Entreprise'] ? `<div style="font-size:11px;color:var(--text-3);margin-top:1px;">${esc(p['Nom'])}</div>` : ''}
-        ${p['Secteur'] ? `<div style="font-size:11px;color:var(--text-3);font-style:italic;">${esc(p['Secteur'])}</div>` : ''}
+        ${p['Nom'] && p['Nom'] !== p['Entreprise'] ? `<div style="font-size:11px;color:var(--text-3);margin-top:1px;">${esc(p['Nom'])}</div>` : ''}
       </div>
+      <div style="font-size:12px;color:var(--text-2);">${esc(p['Secteur'] || '—')}</div>
       <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:flex-start;padding-top:2px;">
         ${(p['Tags'] || '').split(',').filter(Boolean).map(t => {
           const tagObj = tags.find(tg => tg['Nom'] === t.trim());
