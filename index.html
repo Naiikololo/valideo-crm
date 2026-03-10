@@ -1279,7 +1279,12 @@ function openFullProspect(action) {
   if (!selectedProspect) return;
   closeDrawer();
   switchView('prospect', selectedProspect['ID']);
-  renderFullProspect();
+  try { renderFullProspect(); } catch(err) {
+    document.getElementById('prospect-page-content').innerHTML = 
+      '<div style="padding:40px;color:red;font-size:13px;font-family:monospace;background:#fff1f1;border-radius:8px;margin:20px;">'
+      + '<strong>⚠️ Erreur rendu fiche :</strong><br>' + err.message + '<br><br>' 
+      + err.stack.replace(/\n/g,'<br>') + '</div>';
+  }
   const pid = selectedProspect['ID'];
   if (!appelsCache[pid] || !evenementsCache[pid]) {
     Promise.all([
@@ -1301,6 +1306,22 @@ function openFullProspect(action) {
       if (form) { form.classList.remove('hidden'); form.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
     }));
   }
+}
+
+function buildStatsHtml(p, nbAppels, demosFaites, noShows, nbUsers, hasOffre) {
+  const pid = String(p['ID']).replace(/'/g, '');
+  const offreChip = p['Offre interessée'] || p['Offre intéressée']
+    ? '<span style="background:rgba(26,60,94,0.08);color:#1a3c5e;border:1px solid rgba(26,60,94,0.15);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;">📦 ' + (p['Offre intéressée'] || '') + '</span>'
+    : '';
+  const usersBtn = '<button onclick="openEditNbUsers(' + "'" + pid + "'" + ')" style="background:none;border:none;cursor:pointer;font-size:11px;color:#10B981;opacity:0.7;padding:0;line-height:1;">✏️</button>';
+  const usersChip = '<span style="background:rgba(16,185,129,0.08);color:#10B981;border:1px solid rgba(16,185,129,0.15);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">👥 ' + nbUsers + ' utilisateur' + (nbUsers > 1 ? 's' : '') + ' ' + usersBtn + '</span>';
+  const statsGrid = '<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;' + (hasOffre ? 'margin-bottom:14px;' : '') + '">'
+    + '<div style="background:#f4f6f8;border-radius:10px;padding:12px 14px;"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px;font-weight:600;">Appels</div><div style="font-size:22px;font-weight:800;color:#1a3c5e;">' + nbAppels + '</div></div>'
+    + '<div style="background:#f4f6f8;border-radius:10px;padding:12px 14px;"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px;font-weight:600;">Démos faites</div><div style="font-size:22px;font-weight:800;color:#3B82F6;">' + demosFaites + '</div></div>'
+    + '<div style="background:#f4f6f8;border-radius:10px;padding:12px 14px;"><div style="font-size:10px;color:#94a3b8;text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px;font-weight:600;">No show</div><div style="font-size:22px;font-weight:800;color:#EF4444;">' + noShows + '</div></div>'
+    + '</div>';
+  const chipsRow = hasOffre ? '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' + offreChip + usersChip + '</div>' : '';
+  return '<div style="padding:16px 24px;border-bottom:1px solid #e2e8f0;">' + statsGrid + chipsRow + '</div>';
 }
 
 function renderFullProspect() {
@@ -1325,17 +1346,8 @@ function renderFullProspect() {
   const _demosFaites = _evts0.filter(e => e['Type']==='meet' && e['Statut']==='Fait').length;
   const _noShows = _evts0.filter(e => e['Type']==='meet' && e['Statut']==='No show').length;
   const _nbUsers = parseInt(p['Nb utilisateurs']) || 1;
-  const _offreChip = p['Offre intéressée']
-    ? '<span style="background:rgba(26,60,94,0.08);color:var(--navy);border:1px solid rgba(26,60,94,0.15);border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;">📦 ' + p['Offre intéressée'] + '</span>'
-    : '';
-  const _usersChip = '<span style="background:rgba(16,185,129,0.08);color:#10B981;border:1px solid rgba(16,185,129,0.15);border-radius:20px;padding:5px 12px;font-size:12px;font-weight:600;display:inline-flex;align-items:center;gap:6px;">👥 ' + _nbUsers + ' utilisateur' + (_nbUsers > 1 ? 's' : '') + ' <button onclick=\'openEditNbUsers(\"' + p['ID'] + '\")\'  style=\'background:none;border:none;cursor:pointer;font-size:11px;color:#10B981;opacity:0.7;padding:0;line-height:1;\'>✏️</button></span>';
   const _hasOffre = p['Offre intéressée'] || p['Nb utilisateurs'];
-  const _statsHtml = '<div style="padding:16px 24px;border-bottom:1px solid var(--border);"><div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;' + (_hasOffre ? 'margin-bottom:14px' : '') + '">'
-    + '<div style="background:var(--bg);border-radius:10px;padding:12px 14px;"><div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px;font-weight:600;">Appels</div><div style="font-size:22px;font-weight:800;color:var(--navy);">' + _nbAppels + '</div></div>'
-    + '<div style="background:var(--bg);border-radius:10px;padding:12px 14px;"><div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px;font-weight:600;">Démos faites</div><div style="font-size:22px;font-weight:800;color:#3B82F6;">' + _demosFaites + '</div></div>'
-    + '<div style="background:var(--bg);border-radius:10px;padding:12px 14px;"><div style="font-size:10px;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:4px;font-weight:600;">No show</div><div style="font-size:22px;font-weight:800;color:#EF4444;">' + _noShows + '</div></div>'
-    + '</div>' + (_hasOffre ? '<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">' + _offreChip + _usersChip + '</div>' : '')
-    + '</div>';
+  const _statsHtml = buildStatsHtml(p, _nbAppels, _demosFaites, _noShows, _nbUsers, _hasOffre);
 
   document.getElementById('prospect-page-content').innerHTML = loadingBarHtml + staleBannerHtml + `
     <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:14px;">
