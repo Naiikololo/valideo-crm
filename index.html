@@ -1538,7 +1538,10 @@ function renderFullProspect() {
         <span style="font-weight:700;color:#DC2626;font-size:13px;">Relance en retard</span>
         <span style="color:#EF4444;font-size:12px;margin-left:8px;">Prévue le ${formatDate(p['Date relance'])} — à traiter ou reprogrammer</span>
       </div>
-      <button onclick="openRelanceModal()" style="margin-left:auto;background:#EF4444;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">📅 Reprogrammer</button>
+      <div style="margin-left:auto;display:flex;gap:8px;">
+        <button onclick="openLateRelanceNote()" style="background:#fff;color:#DC2626;border:2px solid #EF4444;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">✏️ Changer le statut</button>
+        <button onclick="openRelanceModal()" style="background:#EF4444;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">📅 Reprogrammer</button>
+      </div>
     </div>` : ''}
 
     <div class="prospect-page-body">
@@ -2892,20 +2895,41 @@ function updateEvenementStatut(id, statut) {
   api('updateEvenement', { id, statut }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — statut non sauvegardé', 'error'));
 }
 
+function openLateRelanceNote() {
+  const p = selectedProspect; if (!p) return;
+  const pid = p['ID'];
+  const evts = evenementsCache[pid];
+  if (!evts) { showToast('Chargement en cours, réessaie dans un instant…', ''); return; }
+  const evt = evts.find(e => e['Type'] === 'relance');
+  if (!evt) { showToast('Événement relance introuvable', 'error'); return; }
+  openEventNote(evt['ID'], pid);
+}
+
 function clearRelanceIfDone(pid, type, statut) {
   if (type !== 'relance') return;
-  if (!['Fait','Annulé','No show'].includes(statut)) return;
-  // Vider Date relance sur le prospect → isRelanceLate retourne false immédiatement
+  const isDone = statut !== 'Planifié';
   const idx = prospects.findIndex(p => p['ID'] == pid);
-  if (idx !== -1) prospects[idx]['Date relance'] = '';
-  if (selectedProspect && selectedProspect['ID'] == pid) selectedProspect['Date relance'] = '';
+  if (isDone) {
+    // Tout statut != Planifié → vider Date relance
+    if (idx !== -1) prospects[idx]['Date relance'] = '';
+    if (selectedProspect && selectedProspect['ID'] == pid) selectedProspect['Date relance'] = '';
+    api('updateProspect', { id: pid, dateRelance: '' }).then(r => {
+      if (r?.error) showToast('❌ Erreur sync relance : ' + r.error, 'error');
+    }).catch(() => showToast('❌ Erreur réseau — relance non vidée', 'error'));
+  } else {
+    // Retour à Planifié → restaurer la date depuis l'événement en cache
+    const evt = (evenementsCache[pid] || []).find(e => e['Type'] === 'relance' && e['Statut'] === 'Planifié');
+    if (evt && evt['Date']) {
+      if (idx !== -1) prospects[idx]['Date relance'] = evt['Date'];
+      if (selectedProspect && selectedProspect['ID'] == pid) selectedProspect['Date relance'] = evt['Date'];
+      api('updateProspect', { id: pid, dateRelance: evt['Date'] }).then(r => {
+        if (r?.error) showToast('❌ Erreur sync relance : ' + r.error, 'error');
+      }).catch(() => showToast('❌ Erreur réseau — relance non restaurée', 'error'));
+    }
+  }
   renderProspectsTable(); renderDashboard();
   if (drawerOpen) renderDrawer();
   if (currentView === 'prospect') renderFullProspect();
-  // Persist sur le sheet
-  api('updateProspect', { id: pid, dateRelance: '' }).then(r => {
-    if (r?.error) showToast('❌ Erreur sync relance : ' + r.error, 'error');
-  }).catch(() => showToast('❌ Erreur réseau — relance non vidée', 'error'));
 }
 
 function saveEvenementNote(id) {
