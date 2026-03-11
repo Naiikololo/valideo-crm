@@ -3025,7 +3025,23 @@ function openLateRelanceNote() {
   const evts = evenementsCache[pid];
   if (!evts) { showToast('Chargement en cours, réessaie dans un instant…', ''); return; }
   const evt = evts.find(e => e['Type'] === 'relance');
-  if (!evt) { showToast('Événement relance introuvable', 'error'); return; }
+  if (!evt) {
+    // Pas d'événement relance (prospect importé) → proposer de vider la date directement
+    showConfirm('Aucun événement relance associé.<br>Marquer cette relance comme traitée et vider la date ?', 'Relance sans événement', 'Marquer traitée').then(ok => {
+      if (!ok) return;
+      const idx = prospects.findIndex(pr => pr['ID'] == pid);
+      if (idx !== -1) prospects[idx]['Date relance'] = '';
+      if (selectedProspect && selectedProspect['ID'] == pid) selectedProspect['Date relance'] = '';
+      api('updateProspect', { id: pid, dateRelance: '' }).then(r => {
+        if (r?.error) { showToast('❌ Erreur sauvegarde : ' + r.error, 'error'); return; }
+        showToast('Relance marquée traitée ✓', 'success');
+        renderProspectsTable(); renderDashboard();
+        if (drawerOpen) renderDrawer();
+        if (currentView === 'prospect') renderFullProspect();
+      }).catch(() => showToast('❌ Erreur réseau', 'error'));
+    });
+    return;
+  }
   openEventNote(evt['ID'], pid);
 }
 
