@@ -616,6 +616,7 @@
         <div style="width:1px;height:20px;background:var(--border);flex-shrink:0;"></div>
         <span id="chip-relance-today" class="chip" onclick="toggleRelanceFilter('today')" style="white-space:nowrap;flex-shrink:0;">📅 Aujourd'hui</span>
         <span id="chip-relance-late" class="chip" onclick="toggleRelanceFilter('late')" style="white-space:nowrap;flex-shrink:0;">⚠️ En retard</span>
+        <span id="chip-inactif" class="chip" onclick="toggleRelanceFilter('inactif')" style="white-space:nowrap;flex-shrink:0;">😴 Inactifs <span id="chip-inactif-count"></span></span>
         <div style="width:1px;height:20px;background:var(--border);flex-shrink:0;"></div>
         <div class="filter-select-wrap">
           <select class="filter-select" id="filter-offres" onchange="setOffreFilter(this.value)">
@@ -1259,6 +1260,12 @@ function getFilteredProspects() {
     const excluded = ['Client','Perdu','Mise en sommeil'];
     if (activeRelanceFilter === 'today' && !(dr === today && !excluded.includes(p['Statut']))) return false;
     if (activeRelanceFilter === 'late' && !isRelanceLate(p)) return false;
+    if (activeRelanceFilter === 'inactif') {
+      const inactifJours = parseInt(parametres['inactivite_jours'] || 30);
+      const limitDate = new Date(); limitDate.setDate(limitDate.getDate() - inactifJours);
+      const isInactif = !['Client','Perdu','Mise en sommeil'].includes(p['Statut']) && p['Dernière activité'] && new Date(p['Dernière activité']) < limitDate;
+      if (!isInactif) return false;
+    }
     if (searchQuery) {
       return ['Nom','Entreprise','Secteur','Téléphone','Email','Source'].some(k =>
         String(p[k] || '').toLowerCase().includes(searchQuery));
@@ -1281,6 +1288,7 @@ function toggleRelanceFilter(type) {
   currentPage = 0;
   document.getElementById('chip-relance-today').classList.toggle('active', activeRelanceFilter === 'today');
   document.getElementById('chip-relance-late').classList.toggle('active', activeRelanceFilter === 'late');
+  document.getElementById('chip-inactif').classList.toggle('active', activeRelanceFilter === 'inactif');
   renderProspectsTable();
 }
 
@@ -1691,15 +1699,19 @@ function renderFullProspect() {
 
 // ─── DASHBOARD ─────────────────────────────────────────────
 function renderDashboard() {
-  const today = new Date().toISOString().split('T')[0];
   const inactifJours = parseInt(parametres['inactivite_jours'] || 30);
   const limitDate = new Date(); limitDate.setDate(limitDate.getDate() - inactifJours);
-  const actifs = prospects.filter(p => !['Client','Perdu','Mise en sommeil'].includes(p['Statut'])).length;
+
+  const total   = prospects.length;
+  const actifs  = prospects.filter(p => !['Client','Perdu','Mise en sommeil'].includes(p['Statut'])).length;
   const clients = prospects.filter(p => p['Statut'] === 'Client').length;
-  const demos = prospects.filter(p => p['Statut'] === 'Démo planifiée').length;
-  const late = prospects.filter(p => isRelanceLate(p));
-  const inactifs = prospects.filter(p => !['Client','Perdu','Mise en sommeil'].includes(p['Statut']) && p['Dernière activité'] && new Date(p['Dernière activité']) < limitDate).length;
-  const total = prospects.filter(p => p['Statut'] !== 'Mise en sommeil').length;
+  const demos   = prospects.filter(p => p['Statut'] === 'Démo planifiée').length;
+  const late    = prospects.filter(p => isRelanceLate(p));
+  const inactifs = prospects.filter(p =>
+    !['Client','Perdu','Mise en sommeil'].includes(p['Statut']) &&
+    p['Dernière activité'] &&
+    new Date(p['Dernière activité']) < limitDate
+  ).length;
   const taux = total > 0 ? Math.round((clients / total) * 100) : 0;
 
   document.getElementById('dash-grid').innerHTML = `
@@ -1707,14 +1719,20 @@ function renderDashboard() {
     <div class="dash-card"><div class="dash-card-accent" style="background:var(--orange)"></div><div class="dash-card-label">Urgences</div><div class="dash-card-value" style="color:${late.length > 0 ? 'var(--danger)' : 'var(--text)'}">${late.length}</div></div>
     <div class="dash-card"><div class="dash-card-accent" style="background:var(--success)"></div><div class="dash-card-label">Clients</div><div class="dash-card-value" style="color:var(--success)">${clients}</div><div class="dash-card-sub">Taux conversion : ${taux}%</div></div>
     <div class="dash-card"><div class="dash-card-accent" style="background:#3B82F6"></div><div class="dash-card-label">Démos à venir</div><div class="dash-card-value">${demos}</div></div>
-    <div class="dash-card"><div class="dash-card-accent" style="background:var(--text-3)"></div><div class="dash-card-label">Inactifs +${inactifJours}j</div><div class="dash-card-value" style="color:var(--text-3)">${inactifs}</div></div>
+    <div class="dash-card"><div class="dash-card-accent" style="background:#94A3B8"></div><div class="dash-card-label">Total CRM</div><div class="dash-card-value">${total}</div></div>
   `;
 
+  // Badge relances en retard
   const lateCount = document.getElementById('late-count');
   if (late.length > 0) { lateCount.textContent = late.length; lateCount.classList.remove('hidden'); } else { lateCount.classList.add('hidden'); }
   const headerBadge = document.getElementById('header-late-badge');
   if (headerBadge) { if (late.length > 0) { headerBadge.textContent = late.length; headerBadge.classList.remove('hidden'); } else { headerBadge.classList.add('hidden'); } }
 
+  // Chip inactifs — compteur mis à jour en temps réel
+  const chipInactifCount = document.getElementById('chip-inactif-count');
+  if (chipInactifCount) chipInactifCount.textContent = inactifs > 0 ? `(${inactifs})` : '';
+
+  // Liste urgences
   const relEl = document.getElementById('relances-list');
   relEl.innerHTML = late.length === 0 ? '<div class="empty-state">✅ Aucune urgence en cours</div>' :
     late.map(p => {
