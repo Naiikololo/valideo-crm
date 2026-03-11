@@ -970,18 +970,37 @@
 
 <!-- MODAL CLIENT OFFRE (triggered when status changes to Client) -->
 <div id="modal-client-offre" class="modal-overlay hidden">
-  <div class="modal" style="max-width:400px;">
+  <div class="modal" style="max-width:420px;">
     <div class="modal-title">🎉 Nouveau client !</div>
-    <div style="font-size:13px;color:var(--text-2);margin-bottom:16px;">Quelle offre a souscrit ce client ?</div>
+    <div style="font-size:13px;color:var(--text-2);margin-bottom:20px;">Renseigne les infos d'abonnement pour finaliser.</div>
     <div class="modal-field">
-      <label class="modal-label">Offre</label>
-      <select class="modal-select" id="client-offre-select">
+      <label class="modal-label">Offre souscrite</label>
+      <select class="modal-select" id="client-offre-select" onchange="onClientOffreChange()">
         <option value="">-- Choisir l'offre --</option>
         <option>Gratuit</option>
         <option>Starter</option>
         <option>Premium</option>
         <option>Entreprise</option>
       </select>
+    </div>
+    <div id="client-abonnement-fields" class="hidden">
+      <div class="modal-field">
+        <label class="modal-label">Type d'abonnement</label>
+        <div style="display:flex;gap:10px;margin-top:4px;">
+          <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid var(--border);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.15s;" id="label-mensuel">
+            <input type="radio" name="client-abonnement-type" value="Mensuel" id="radio-mensuel" onchange="onAbonnementTypeChange()" style="accent-color:var(--orange);">
+            📅 Mensuel
+          </label>
+          <label style="flex:1;display:flex;align-items:center;gap:8px;padding:10px 14px;border:2px solid var(--border);border-radius:10px;cursor:pointer;font-size:13px;font-weight:600;transition:all 0.15s;" id="label-annuel">
+            <input type="radio" name="client-abonnement-type" value="Annuel" id="radio-annuel" onchange="onAbonnementTypeChange()" style="accent-color:var(--orange);">
+            📆 Annuel
+          </label>
+        </div>
+      </div>
+      <div class="modal-field">
+        <label class="modal-label">Date d'abonnement <span style="font-weight:400;color:var(--text-3);font-size:11px;">— sera la date anniversaire</span></label>
+        <input class="modal-input" id="client-date-abonnement" type="date">
+      </div>
     </div>
     <div class="modal-btns">
       <button class="btn-save" onclick="confirmClientOffre()">Enregistrer</button>
@@ -2605,22 +2624,73 @@ let _pendingClientOffreProspectId = null;
 function openClientOffreModal(pid) {
   _pendingClientOffreProspectId = pid;
   const p = prospects.find(pr => pr['ID'] == pid);
-  document.getElementById('client-offre-select').value = p?.['Offre intéressée'] || '';
+  const offre = p?.['Offre intéressée'] || '';
+  document.getElementById('client-offre-select').value = offre;
+  document.getElementById('client-date-abonnement').value = new Date().toISOString().split('T')[0];
+  // Reset radios
+  document.querySelectorAll('input[name="client-abonnement-type"]').forEach(r => {
+    r.checked = false;
+    document.getElementById('label-' + r.value.toLowerCase()).style.borderColor = 'var(--border)';
+    document.getElementById('label-' + r.value.toLowerCase()).style.background = '';
+    document.getElementById('label-' + r.value.toLowerCase()).style.color = '';
+  });
+  // Pré-sélectionner si déjà renseigné
+  if (p?.['Type abonnement']) {
+    const r = document.querySelector(`input[name="client-abonnement-type"][value="${p['Type abonnement']}"]`);
+    if (r) { r.checked = true; onAbonnementTypeChange(); }
+  }
+  if (p?.['Date abonnement']) document.getElementById('client-date-abonnement').value = p['Date abonnement'];
+  // Afficher/masquer champs selon offre
+  const showAbo = offre && offre !== 'Gratuit';
+  document.getElementById('client-abonnement-fields').classList.toggle('hidden', !showAbo);
   document.getElementById('modal-client-offre').classList.remove('hidden');
+}
+
+function onClientOffreChange() {
+  const offre = document.getElementById('client-offre-select').value;
+  document.getElementById('client-abonnement-fields').classList.toggle('hidden', !offre || offre === 'Gratuit');
+}
+
+function onAbonnementTypeChange() {
+  ['mensuel', 'annuel'].forEach(t => {
+    const label = document.getElementById('label-' + t);
+    const radio = document.getElementById('radio-' + t);
+    if (radio.checked) {
+      label.style.borderColor = 'var(--orange)';
+      label.style.background = 'rgba(249,115,22,0.07)';
+      label.style.color = 'var(--orange)';
+    } else {
+      label.style.borderColor = 'var(--border)';
+      label.style.background = '';
+      label.style.color = '';
+    }
+  });
 }
 
 function confirmClientOffre() {
   const offre = document.getElementById('client-offre-select').value;
   const pid = _pendingClientOffreProspectId;
+  const isPayant = offre && offre !== 'Gratuit';
+  const typeAbonnement = isPayant ? (document.querySelector('input[name="client-abonnement-type"]:checked')?.value || '') : '';
+  const dateAbonnement = isPayant ? (document.getElementById('client-date-abonnement').value || '') : '';
+  if (isPayant && !typeAbonnement) { showToast('⚠️ Choisis un type d\'abonnement (Mensuel ou Annuel)', 'error'); return; }
   closeModal('modal-client-offre');
   if (!offre || !pid) return;
   const idx = prospects.findIndex(p => p['ID'] == pid);
-  if (idx !== -1) prospects[idx]['Offre intéressée'] = offre;
-  if (selectedProspect?.['ID'] == pid) selectedProspect['Offre intéressée'] = offre;
+  if (idx !== -1) {
+    prospects[idx]['Offre intéressée'] = offre;
+    if (isPayant) { prospects[idx]['Type abonnement'] = typeAbonnement; prospects[idx]['Date abonnement'] = dateAbonnement; }
+  }
+  if (selectedProspect?.['ID'] == pid) {
+    selectedProspect['Offre intéressée'] = offre;
+    if (isPayant) { selectedProspect['Type abonnement'] = typeAbonnement; selectedProspect['Date abonnement'] = dateAbonnement; }
+  }
   if (currentView === 'prospect') renderFullProspect();
   renderProspectsTable();
-  showToast('Offre enregistrée ✓', 'success');
-  api('updateProspect', { id: pid, offre }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde offre : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — offre non sauvegardée', 'error'));
+  showToast('Client enregistré ✓', 'success');
+  api('updateProspect', { id: pid, offre, typeAbonnement: isPayant ? typeAbonnement : '', dateAbonnement: isPayant ? dateAbonnement : '' })
+    .then(r => { if (r?.error) showToast('❌ Erreur sauvegarde : ' + r.error, 'error'); })
+    .catch(() => showToast('❌ Erreur réseau', 'error'));
 }
 
 // ─── EVENT NOTE MODAL ──────────────────────────────────────
@@ -2793,6 +2863,29 @@ function renderResumeCard(p) {
     html += `<div class="right-item"><div class="right-item-label">${evtIcon} ${evtLabel}</div><div class="right-item-value orange">${formatDate(nextEvt['Date'])}${nextEvt['Heure'] ? ' à ' + nextEvt['Heure'] : ''}</div></div>`;
   } else if (p['Date relance']) {
     html += `<div class="right-item"><div class="right-item-label">📅 Prochaine relance</div><div class="right-item-value ${isLate ? 'danger' : 'orange'}">${isLate ? '⚠️ ' : ''}${formatDate(p['Date relance'])}</div></div>`;
+  }
+
+  // ── Abonnement (clients payants uniquement) ───────────────
+  const _offre = p['Offre intéressée'] || '';
+  const _typeAbo = p['Type abonnement'] || '';
+  const _dateAbo = p['Date abonnement'] || '';
+  if (p['Statut'] === 'Client' && _offre && _offre !== 'Gratuit') {
+    html += `<div style="border-top:1px solid var(--border);margin:12px 0 10px;"></div>`;
+    html += `<div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;">💳 Abonnement</div>`;
+    html += `<div class="right-item"><div class="right-item-label">Offre</div><div class="right-item-value" style="color:var(--orange);font-weight:700;">${esc(_offre)}</div></div>`;
+    if (_typeAbo) {
+      html += `<div class="right-item"><div class="right-item-label">Type</div><div class="right-item-value">${_typeAbo === 'Annuel' ? '📆' : '📅'} ${esc(_typeAbo)}</div></div>`;
+    }
+    if (_dateAbo) {
+      const todayD = new Date(); todayD.setHours(0,0,0,0);
+      const aboDate = new Date(_dateAbo);
+      const nextAnni = new Date(aboDate); nextAnni.setFullYear(todayD.getFullYear());
+      if (nextAnni < todayD) nextAnni.setFullYear(todayD.getFullYear() + 1);
+      const daysUntil = Math.round((nextAnni - todayD) / 86400000);
+      html += `<div class="right-item"><div class="right-item-label">Depuis</div><div class="right-item-value">${formatDate(_dateAbo)}</div></div>`;
+      html += `<div class="right-item"><div class="right-item-label">Prochain anniversaire</div><div class="right-item-value" style="color:${daysUntil <= 30 ? 'var(--orange)' : 'inherit'};">${formatDate(nextAnni.toISOString().split('T')[0])} <span style="color:var(--text-3);font-size:11px;">(${daysUntil}j)</span></div></div>`;
+    }
+    html += `<button onclick="openClientOffreModal('${pid}')" style="width:100%;margin-top:6px;padding:6px 10px;background:transparent;border:1.5px solid var(--border);border-radius:8px;font-size:11px;font-weight:600;color:var(--text-2);cursor:pointer;font-family:'Poppins',sans-serif;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-2)'">✏️ Modifier l'abonnement</button>`;
   }
 
   // ── Liens utiles ──────────────────────────────────────────
