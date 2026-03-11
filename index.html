@@ -1439,11 +1439,13 @@ function renderProspectsTable() {
       <div>${p['Date relance'] ? `<span class="relance-chip ${isLate ? 'late' : 'ok'}">${isLate ? '⚠️ ' : '📅 '}${formatDate(p['Date relance'])}</span>` : '<span style="color:var(--text-3);font-size:12px;">—</span>'}</div>
       <div style="font-size:12px;color:var(--text-2);">${esc(p['Secteur'] || '—')}</div>
       <div>${(() => {
-        const _ov = p['Offre intéressée'] || '';
+        const _ov  = p['Offre intéressée'] || '';
+        const _dr  = p['Date résiliation'] || '';
+        if (_dr) return `<span style="background:#EF4444;color:#fff;border-radius:5px;padding:2px 9px;font-size:11px;font-weight:800;white-space:nowrap;">❌ Résilié</span>`;
         if (!_ov) return '<span style="color:var(--text-3);font-size:12px;">—</span>';
-        const _om = { 'gratuit':{'c':'#94A3B8','t':'#475569'}, 'starter':{'c':'#F97316','t':'#c2410c'}, 'premium':{'c':'#8B5CF6','t':'#7c3aed'}, 'entreprise':{'c':'#10B981','t':'#065f46'} };
-        const _ok = _ov.toLowerCase(); const _ocfg = _om[_ok] || _om['gratuit'];
-        return `<span style="background:${_ocfg.c};color:#fff;border-radius:5px;padding:2px 9px;font-size:11px;font-weight:800;letter-spacing:0.2px;white-space:nowrap;">${esc(_ov)}</span>`;
+        const _om = { 'gratuit':{'c':'#94A3B8'}, 'starter':{'c':'#F97316'}, 'premium':{'c':'#8B5CF6'}, 'entreprise':{'c':'#10B981'} };
+        const _ocfg = _om[_ov.toLowerCase()] || _om['gratuit'];
+        return `<span style="background:${_ocfg.c};color:#fff;border-radius:5px;padding:2px 9px;font-size:11px;font-weight:800;white-space:nowrap;">${esc(_ov)}</span>`;
       })()}</div>
       <div style="font-size:12px;color:var(--text-2);">${esc(p['Source'] === 'Utilisateur app (CRM interne)' ? 'Application' : (p['Source'] || '—'))}</div>
       <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:flex-start;padding-top:2px;">
@@ -1645,7 +1647,7 @@ function renderFullProspect() {
   const _nbUsers    = parseInt(p['Nb utilisateurs']) || 0;
   const _nbRapports = parseInt(p['Nb rapports']) || 0;
   const _pid2       = String(p['ID']).replace(/'/g, '');
-  const _isClient   = p['Statut'] === 'Client';
+  const _isClient   = ['Client', 'Client Geswork'].includes(p['Statut']);
   const _isEntreprise = _offreVal.toLowerCase().includes('entreprise');
   const _isPremium    = _offreVal.toLowerCase().includes('premium');
   const _isStarter    = _offreVal.toLowerCase().includes('starter');
@@ -1691,7 +1693,7 @@ function renderFullProspect() {
         ${_rapportsTag}
         ${_dateAbo ? `<span style="font-size:10px;color:${_cfg.color};font-weight:600;opacity:0.65;white-space:nowrap;border-left:1px solid ${_cfg.border};padding-left:8px;">📅 ${formatDate(_dateAbo)}${_clientDuration ? ` <span style="opacity:0.7;">(${_clientDuration})</span>` : ''}</span>` : ''}
       </div>
-      ${_isClient ? `<span onclick="openResilModal('${_pid2}')" style="font-size:11px;color:#94A3B8;cursor:pointer;text-decoration:underline;white-space:nowrap;">Résilier</span>` : ''}
+      ${_isClient && !_dateResil ? `<span onclick="openResilModal('${_pid2}')" style="font-size:11px;color:#94A3B8;cursor:pointer;text-decoration:underline;white-space:nowrap;">Résilier</span>` : ''}
       ` : `
       <div style="display:inline-flex;align-items:center;gap:6px;background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:8px;padding:5px 10px;cursor:pointer;" onclick="openResilModal('${_pid2}')" title="Modifier la résiliation">
         <span style="background:#EF4444;color:#fff;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:800;white-space:nowrap;">❌ Résilié</span>
@@ -1987,34 +1989,63 @@ function changeStatut(statut) {
   if (statut === 'Perdu') { pendingMotifStatus = statut; pendingProspectId = selectedProspect['ID']; document.getElementById('modal-motif').classList.remove('hidden'); return; }
   const pid = selectedProspect['ID'];
   const idx = prospects.findIndex(p => p['ID'] == pid);
+  const wasPerdu = selectedProspect['Statut'] === 'Perdu';
+
   if (idx !== -1) prospects[idx]['Statut'] = statut;
   selectedProspect['Statut'] = statut;
-  // Passage Client : forcer Starter immédiatement si offre Gratuit/vide
+
+  // Quitter Perdu → effacer résiliation + motif perte + repasser en Gratuit
+  if (wasPerdu && statut !== 'Perdu') {
+    const fields = ['Date résiliation', 'Motif résiliation', 'Motif perte', 'Type abonnement', 'Date abonnement'];
+    fields.forEach(f => { if (idx !== -1) prospects[idx][f] = ''; if (selectedProspect) selectedProspect[f] = ''; });
+    if (idx !== -1) prospects[idx]['Offre intéressée'] = 'Gratuit';
+    selectedProspect['Offre intéressée'] = 'Gratuit';
+  }
+
+  // Passage Client → forcer au moins Starter
   if (statut === 'Client') {
-    const _curOffre = selectedProspect['Offre intéressée'] || '';
-    if (!_curOffre || _curOffre === 'Gratuit') {
+    const curOffre = selectedProspect['Offre intéressée'] || '';
+    if (!curOffre || curOffre === 'Gratuit') {
       if (idx !== -1) prospects[idx]['Offre intéressée'] = 'Starter';
       selectedProspect['Offre intéressée'] = 'Starter';
     }
   }
+
   renderProspectsTable(); renderDashboard();
   if (drawerOpen) renderDrawer();
   if (currentView === 'prospect') renderFullProspect();
-  api('updateProspect', { id: pid, statut }).then(r => { if (r?.error) showToast('❌ Erreur mise à jour statut : ' + r.error, 'error'); });
+
+  const apiData = { id: pid, statut };
+  if (wasPerdu && statut !== 'Perdu') {
+    Object.assign(apiData, { dateResiliation: '', motifResiliation: '', motifPerte: '', offre: 'Gratuit', typeAbonnement: '', dateAbonnement: '' });
+  }
+  api('updateProspect', apiData).then(r => { if (r?.error) showToast('❌ Erreur mise à jour statut : ' + r.error, 'error'); });
+
   if (statut === 'Client') openClientOffreModal(pid);
 }
 
 function confirmMotif() {
   const motif = document.getElementById('motif-select').value;
   const idx = prospects.findIndex(p => p['ID'] == pendingProspectId);
-  if (idx !== -1) { prospects[idx]['Statut'] = pendingMotifStatus; prospects[idx]['Motif perte'] = motif; }
-  if (selectedProspect?.['ID'] == pendingProspectId) { selectedProspect['Statut'] = pendingMotifStatus; selectedProspect['Motif perte'] = motif; }
+  const wasClient = idx !== -1 && ['Client', 'Client Geswork'].includes(prospects[idx]['Statut']);
+
+  if (idx !== -1) {
+    prospects[idx]['Statut'] = pendingMotifStatus;
+    prospects[idx]['Motif perte'] = motif;
+    // Si le prospect était client et passe Perdu via changement manuel (pas résiliation), ne pas effacer la résiliation existante
+  }
+  if (selectedProspect?.['ID'] == pendingProspectId) {
+    selectedProspect['Statut'] = pendingMotifStatus;
+    selectedProspect['Motif perte'] = motif;
+  }
   closeModal('modal-motif');
   renderProspectsTable(); renderDashboard();
   if (drawerOpen) renderDrawer();
   if (currentView === 'prospect') renderFullProspect();
   showToast('Statut mis à jour ✓', 'success');
-  api('updateProspect', { id: pendingProspectId, statut: pendingMotifStatus, motifPerte: motif }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde statut : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — statut non sauvegardé', 'error'));
+  api('updateProspect', { id: pendingProspectId, statut: pendingMotifStatus, motifPerte: motif })
+    .then(r => { if (r?.error) showToast('❌ Erreur sauvegarde statut : ' + r.error, 'error'); })
+    .catch(() => showToast('❌ Erreur réseau — statut non sauvegardé', 'error'));
 }
 
 let _notesTimer = null;
@@ -2779,6 +2810,7 @@ function onResilMotifChange() {
 
 function confirmResiliation() {
   const pid = _pendingResilPid;
+  if (!pid) return;
   const date = document.getElementById('resil-date').value;
   const motifRaw = document.getElementById('resil-motif').value;
   if (!date) { showToast('⚠️ Choisis une date', 'error'); return; }
@@ -2788,8 +2820,9 @@ function confirmResiliation() {
   closeModal('modal-resiliation');
 
   const idx = prospects.findIndex(p => p['ID'] == pid);
-  if (idx !== -1) { prospects[idx]['Date résiliation'] = date; prospects[idx]['Motif résiliation'] = motif; prospects[idx]['Statut'] = 'Perdu'; }
-  if (selectedProspect?.['ID'] == pid) { selectedProspect['Date résiliation'] = date; selectedProspect['Motif résiliation'] = motif; selectedProspect['Statut'] = 'Perdu'; }
+  const patch = { 'Date résiliation': date, 'Motif résiliation': motif, 'Statut': 'Perdu' };
+  if (idx !== -1) Object.assign(prospects[idx], patch);
+  if (selectedProspect?.['ID'] == pid) Object.assign(selectedProspect, patch);
 
   renderProspectsTable(); renderDashboard();
   if (drawerOpen) renderDrawer();
