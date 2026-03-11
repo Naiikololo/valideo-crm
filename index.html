@@ -2783,14 +2783,14 @@ function confirmResiliation() {
   closeModal('modal-resiliation');
 
   const idx = prospects.findIndex(p => p['ID'] == pid);
-  if (idx !== -1) { prospects[idx]['Date résiliation'] = date; prospects[idx]['Motif résiliation'] = motif; }
-  if (selectedProspect?.['ID'] == pid) { selectedProspect['Date résiliation'] = date; selectedProspect['Motif résiliation'] = motif; }
+  if (idx !== -1) { prospects[idx]['Date résiliation'] = date; prospects[idx]['Motif résiliation'] = motif; prospects[idx]['Statut'] = 'Perdu'; }
+  if (selectedProspect?.['ID'] == pid) { selectedProspect['Date résiliation'] = date; selectedProspect['Motif résiliation'] = motif; selectedProspect['Statut'] = 'Perdu'; }
 
   renderProspectsTable(); renderDashboard();
   if (drawerOpen) renderDrawer();
   if (currentView === 'prospect') renderFullProspect();
   showToast('Résiliation enregistrée ✓', 'success');
-  api('updateProspect', { id: pid, dateResiliation: date, motifResiliation: motif })
+  api('updateProspect', { id: pid, dateResiliation: date, motifResiliation: motif, statut: 'Perdu' })
     .then(r => { if (r?.error) showToast('❌ Erreur sauvegarde : ' + r.error, 'error'); });
 }
 
