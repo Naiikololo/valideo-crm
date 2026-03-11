@@ -1551,31 +1551,68 @@ function renderFullProspect() {
   const _evts0 = evenementsCache[p['ID']] || [];
   const _demosFaites = _evts0.filter(e => e['Type']==='meet' && e['Statut']==='Fait').length;
   const _noShows = _evts0.filter(e => e['Type']==='meet' && e['Statut']==='No show').length;
-  const _nbUsers = parseInt(p['Nb utilisateurs']) || 1;
+  const _offreVal  = p['Offre intéressée'] || 'Gratuit';
+  const _nbUsers   = parseInt(p['Nb utilisateurs']) || 0;
   const _nbRapports = parseInt(p['Nb rapports']) || 0;
-  const _offreVal = p['Offre intéressée'] || '';
-  const _isEntreprise = _offreVal.toLowerCase().includes('entreprise');
-  const _isPremium = _offreVal.toLowerCase().includes('premium');
   const _pid2 = String(p['ID']).replace(/'/g, '');
-  const _chipStyle = (bg, color, border) => `background:${bg};color:${color};border:1px solid ${border};border-radius:20px;padding:4px 12px;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;`;
-  const _editIcon = '<span style="font-size:9px;opacity:0.55;">✏️</span>';
-  const _offreChip2 = _offreVal
-    ? `<span onclick="openEditOffre('${_pid2}')" style="${_chipStyle('rgba(249,115,22,0.09)','#c2410c','rgba(249,115,22,0.25)')}">📦 ${_offreVal} ${_editIcon}</span>`
-    : `<span onclick="openEditOffre('${_pid2}')" style="background:#f1f5f9;color:#94a3b8;border:1px dashed #cbd5e1;border-radius:20px;padding:4px 12px;font-size:11px;cursor:pointer;">+ Offre</span>`;
-  const _usersChip2 = _isEntreprise
-    ? `<span onclick="openEditNbUsers('${_pid2}')" style="${_chipStyle('rgba(16,185,129,0.08)','#059669','rgba(16,185,129,0.2)')}">👥 ${_nbUsers} util. ${_editIcon}</span>`
-    : '';
-  // Default display: Starter=15/mois, Premium/Entreprise=Illimités
-  const _isStarter = _offreVal.toLowerCase().includes('starter');
-  const _showRapports = _isStarter || _isPremium || _isEntreprise;
-  let _rapportsLabel;
-  if (_nbRapports > 0) { _rapportsLabel = _nbRapports + ' rapp./mois'; }
-  else if (_isStarter) { _rapportsLabel = '15 rapp./mois'; }
-  else { _rapportsLabel = 'Illimités'; }
-  const _rapportsChip2 = _showRapports
-    ? `<span onclick="openEditNbRapports('${_pid2}')" style="${_chipStyle('rgba(59,130,246,0.08)','#2563eb','rgba(59,130,246,0.2)')}">📄 ${_rapportsLabel} ${_editIcon}</span>`
-    : '';
-  const _chipsHtml = `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;">${_offreChip2}${_usersChip2}${_rapportsChip2}</div>`;
+  const _isClient = p['Statut'] === 'Client';
+  const _isEntreprise = _offreVal.toLowerCase().includes('entreprise');
+  const _isPremium    = _offreVal.toLowerCase().includes('premium');
+  const _isStarter    = _offreVal.toLowerCase().includes('starter');
+  const _isPayant     = _isStarter || _isPremium || _isEntreprise;
+
+  // Couleurs par offre
+  const _OFFRE_CFG = {
+    'gratuit':    { badge:'#94A3B8', bg:'#F8FAFC', border:'#E2E8F0', color:'#64748b', label:'Gratuit',    usersDefault:1,  rapportsDefault:'5/mois',    canEditUsers:false, canEditRapports:false },
+    'starter':    { badge:'#F97316', bg:'#FFF7ED', border:'#FED7AA', color:'#c2410c', label:'Starter',    usersDefault:1,  rapportsDefault:'15/mois',   canEditUsers:false, canEditRapports:false },
+    'premium':    { badge:'#8B5CF6', bg:'#F5F3FF', border:'#DDD6FE', color:'#7c3aed', label:'Premium',    usersDefault:1,  rapportsDefault:'Illimités', canEditUsers:false, canEditRapports:false },
+    'entreprise': { badge:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', color:'#065f46', label:'Entreprise', usersDefault:10, rapportsDefault:'Illimités', canEditUsers:true,  canEditRapports:true  },
+  };
+  const _cfg = _OFFRE_CFG[_offreVal.toLowerCase()] || _OFFRE_CFG['gratuit'];
+
+  // Valeurs affichées (custom si renseigné, sinon défaut)
+  const _usersDisplay    = _nbUsers > 0 ? _nbUsers : _cfg.usersDefault;
+  const _rapportsDisplay = _nbRapports > 0 ? `${_nbRapports}/mois` : _cfg.rapportsDefault;
+
+  // Infos abonnement (clients payants)
+  const _typeAbo = p['Type abonnement'] || '';
+  const _dateAbo = p['Date abonnement'] || '';
+  let _aboLines  = '';
+  if (_isClient && _isPayant) {
+    if (_typeAbo) _aboLines += `<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:${_cfg.color};font-weight:600;">${_typeAbo === 'Annuel' ? '📆' : '📅'} ${_typeAbo}</div>`;
+    if (_dateAbo) {
+      const _todayD = new Date(); _todayD.setHours(0,0,0,0);
+      const _nextAnni = new Date(_dateAbo); _nextAnni.setFullYear(_todayD.getFullYear());
+      if (_nextAnni < _todayD) _nextAnni.setFullYear(_todayD.getFullYear() + 1);
+      const _daysUntil = Math.round((_nextAnni - _todayD) / 86400000);
+      _aboLines += `<div style="font-size:11px;color:#64748b;">Depuis ${formatDate(_dateAbo)}</div>`;
+      _aboLines += `<div style="font-size:11px;color:${_daysUntil <= 30 ? '#F97316' : '#94a3b8'};">🗓 Anniversaire dans ${_daysUntil}j</div>`;
+    }
+    if (!_typeAbo && !_dateAbo) _aboLines += `<div style="font-size:11px;color:#94a3b8;cursor:pointer;" onclick="openClientOffreModal('${_pid2}')">+ Renseigner l'abonnement</div>`;
+  }
+
+  // Boutons users / rapports
+  const _usersBtn = (_cfg.canEditUsers || _isEntreprise)
+    ? `<span onclick="openEditNbUsers('${_pid2}')" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:6px;font-size:11px;font-weight:700;color:${_cfg.color};cursor:pointer;">👥 ${_usersDisplay} util. <span style="font-size:9px;opacity:0.5;">✏️</span></span>`
+    : `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:6px;font-size:11px;font-weight:700;color:${_cfg.color};">👥 ${_usersDisplay} util.</span>`;
+  const _rapportsBtn = (_cfg.canEditRapports || _isEntreprise)
+    ? `<span onclick="openEditNbRapports('${_pid2}')" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:6px;font-size:11px;font-weight:700;color:${_cfg.color};cursor:pointer;">📄 ${_rapportsDisplay} <span style="font-size:9px;opacity:0.5;">✏️</span></span>`
+    : `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:6px;font-size:11px;font-weight:700;color:${_cfg.color};">📄 ${_rapportsDisplay}</span>`;
+
+  const _editOffreBtn = `<span onclick="${_isClient ? `openClientOffreModal('${_pid2}')` : `openEditOffre('${_pid2}')`}" style="display:inline-flex;align-items:center;padding:3px 8px;background:transparent;border:1.5px solid ${_cfg.border};border-radius:6px;font-size:10px;color:${_cfg.color};cursor:pointer;opacity:0.7;" title="Modifier l'offre">✏️</span>`;
+
+  const _offreCard = `
+    <div style="background:${_cfg.bg};border:1.5px solid ${_cfg.border};border-radius:12px;padding:12px 14px;min-width:190px;max-width:240px;display:flex;flex-direction:column;gap:8px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+        <span style="background:${_cfg.badge};color:#fff;border-radius:6px;padding:3px 12px;font-size:12px;font-weight:800;letter-spacing:0.3px;">${_cfg.label}</span>
+        ${_editOffreBtn}
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;">
+        ${_usersBtn}
+        ${_rapportsBtn}
+      </div>
+      ${_aboLines ? `<div style="display:flex;flex-direction:column;gap:2px;padding-top:4px;border-top:1px solid ${_cfg.border};">${_aboLines}</div>` : ''}
+    </div>`;
 
   document.getElementById('prospect-page-content').innerHTML = loadingBarHtml + staleBannerHtml + `
     <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:14px;">
@@ -1615,8 +1652,8 @@ function renderFullProspect() {
         <div class="detail-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
           <!-- Identité -->
           <div style="padding:22px 24px 18px;border-bottom:1px solid var(--border);">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;">
-              <div>
+            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px;">
+              <div style="flex:1;min-width:0;">
                 <div style="font-size:22px;font-weight:800;color:var(--navy);line-height:1.2;">${esc(p['Entreprise'] || p['Nom'] || '—')}</div>
                 <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap;">
                   ${p['Nom'] && p['Nom'] !== p['Entreprise'] ? `<span style="font-size:14px;font-weight:600;color:var(--text-2);">👤 ${esc(p['Nom'])}</span>` : ''}
@@ -1624,6 +1661,7 @@ function renderFullProspect() {
                   ${p['Secteur'] ? `<span style="font-size:12px;color:var(--text-3);background:var(--bg);padding:2px 8px;border-radius:20px;">${esc(p['Secteur'])}</span>` : ''}
                 </div>
               </div>
+              ${_offreCard}
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
               ${prospectTags.map(t => { const tObj = tags.find(tg => tg['Nom'] === t); const color = tObj?.Couleur || '#94A3B8';
@@ -1632,20 +1670,17 @@ function renderFullProspect() {
             </div>
           </div>
 
-          <!-- Stats + Chips inline -->
-          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid var(--border);background:#fafbfc;">
-            <div style="display:flex;gap:20px;align-items:center;">
-              <div style="display:flex;align-items:baseline;gap:6px;">
-                <span style="font-size:22px;font-weight:800;color:#1a3c5e;">${_nbAppels}</span>
-                <span style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Appels</span>
-              </div>
-              <div style="width:1px;height:20px;background:var(--border);"></div>
-              <div style="display:flex;align-items:baseline;gap:6px;">
-                <span style="font-size:22px;font-weight:800;color:#3B82F6;">${_demosFaites}</span>
-                <span style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Démos</span>
-              </div>
+          <!-- Stats -->
+          <div style="display:flex;align-items:center;padding:10px 20px;border-bottom:1px solid var(--border);background:#fafbfc;gap:20px;">
+            <div style="display:flex;align-items:baseline;gap:6px;">
+              <span style="font-size:22px;font-weight:800;color:#1a3c5e;">${_nbAppels}</span>
+              <span style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Appels</span>
             </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;">${_chipsHtml}</div>
+            <div style="width:1px;height:20px;background:var(--border);"></div>
+            <div style="display:flex;align-items:baseline;gap:6px;">
+              <span style="font-size:22px;font-weight:800;color:#3B82F6;">${_demosFaites}</span>
+              <span style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Démos</span>
+            </div>
           </div>
 
           <!-- Contacts en grille -->
