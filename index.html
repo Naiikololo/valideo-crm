@@ -1363,8 +1363,8 @@ function renderDrawer() {
   const appels = appelsCache[p['ID']] || [];
   const isLate = isRelanceLate(p);
 
-  document.getElementById('drawer-name').textContent = p['Nom'] || '—';
-  document.getElementById('drawer-company').textContent = [p['Entreprise'], p['Secteur']].filter(Boolean).join(' · ');
+  document.getElementById('drawer-name').textContent = p['Entreprise'] || p['Nom'] || '—';
+  document.getElementById('drawer-company').textContent = [p['Nom'] && p['Nom'] !== p['Entreprise'] ? p['Nom'] : '', p['Secteur']].filter(Boolean).join(' · ');
 
   document.getElementById('drawer-body').innerHTML = `
     <div class="drawer-section">
@@ -1515,8 +1515,8 @@ function renderFullProspect() {
     <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:14px;">
       <button class="btn-back" onclick="switchView('dashboard')">← Retour</button>
       <div style="flex:1;">
-        <div style="font-size:18px;font-weight:800;color:var(--navy);">${esc(p['Nom'] || '—')}</div>
-        <div style="font-size:12px;color:var(--text-3);">${[p['Entreprise'], p['Secteur']].filter(Boolean).join(' · ')}</div>
+        <div style="font-size:18px;font-weight:800;color:var(--navy);">${esc(p['Entreprise'] || p['Nom'] || '—')}</div>
+        <div style="font-size:12px;color:var(--text-3);">${[p['Nom'] && p['Nom'] !== p['Entreprise'] ? p['Nom'] : '', p['Secteur']].filter(Boolean).join(' · ')}</div>
       </div>
       <div class="status-dropdown" id="status-dd">
         <span class="badge" style="background:${statut.Couleur}22;color:${statut.Couleur};border:1px solid ${statut.Couleur}44;font-size:12px;padding:6px 14px;cursor:pointer;" onclick="document.getElementById('status-dd-menu').classList.toggle('hidden')">
@@ -1551,10 +1551,10 @@ function renderFullProspect() {
           <div style="padding:22px 24px 18px;border-bottom:1px solid var(--border);">
             <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px;">
               <div>
-                <div style="font-size:20px;font-weight:800;color:var(--navy);line-height:1.2;">${esc(p['Nom'] || '—')}</div>
+                <div style="font-size:22px;font-weight:800;color:var(--navy);line-height:1.2;">${esc(p['Entreprise'] || p['Nom'] || '—')}</div>
                 <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap;">
-                  ${p['Entreprise'] ? `<span style="font-size:13px;font-weight:600;color:var(--text-2);">🏢 ${esc(p['Entreprise'])}</span>` : ''}
-                  ${p['Entreprise'] && p['Secteur'] ? `<span style="color:var(--border);">·</span>` : ''}
+                  ${p['Nom'] && p['Nom'] !== p['Entreprise'] ? `<span style="font-size:14px;font-weight:600;color:var(--text-2);">👤 ${esc(p['Nom'])}</span>` : ''}
+                  ${p['Nom'] && p['Nom'] !== p['Entreprise'] && p['Secteur'] ? `<span style="color:var(--border);">·</span>` : ''}
                   ${p['Secteur'] ? `<span style="font-size:12px;color:var(--text-3);background:var(--bg);padding:2px 8px;border-radius:20px;">${esc(p['Secteur'])}</span>` : ''}
                 </div>
               </div>
