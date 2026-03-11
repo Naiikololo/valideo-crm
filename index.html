@@ -1563,84 +1563,60 @@ function renderFullProspect() {
   const loadingBarHtml = _dataReady ? '' : '<div class="fiche-loading-bar" id="fiche-loading-bar"></div>';
   const staleBannerHtml = _dataReady ? '' : '<div class="fiche-stale-banner" id="fiche-stale-banner">⏳ Chargement de l\'historique et des événements…</div>';
 
-  // Pre-compute stats block to avoid nested template literals
-  const _nbAppels = (appelsCache[p['ID']] || []).length;
-  const _evts0 = evenementsCache[p['ID']] || [];
-  const _demosFaites = _evts0.filter(e => e['Type']==='meet' && e['Statut']==='Fait').length;
-  const _noShows = _evts0.filter(e => e['Type']==='meet' && e['Statut']==='No show').length;
-  const _offreVal  = p['Offre intéressée'] || 'Gratuit';
-  const _nbUsers   = parseInt(p['Nb utilisateurs']) || 0;
+  // Stats
+  const _nbAppels    = (appelsCache[p['ID']] || []).length;
+  const _evts0       = evenementsCache[p['ID']] || [];
+  const _demosFaites = _evts0.filter(e => e['Type'] === 'meet' && e['Statut'] === 'Fait').length;
+
+  // Chip offre — compact, dans la barre stats
+  const _offreVal   = p['Offre intéressée'] || 'Gratuit';
+  const _nbUsers    = parseInt(p['Nb utilisateurs']) || 0;
   const _nbRapports = parseInt(p['Nb rapports']) || 0;
-  const _pid2 = String(p['ID']).replace(/'/g, '');
-  const _isClient = p['Statut'] === 'Client';
+  const _pid2       = String(p['ID']).replace(/'/g, '');
+  const _isClient   = p['Statut'] === 'Client';
   const _isEntreprise = _offreVal.toLowerCase().includes('entreprise');
   const _isPremium    = _offreVal.toLowerCase().includes('premium');
   const _isStarter    = _offreVal.toLowerCase().includes('starter');
   const _isPayant     = _isStarter || _isPremium || _isEntreprise;
+  const _typeAbo      = p['Type abonnement'] || '';
+  const _dateAbo      = p['Date abonnement'] || '';
 
-  // Couleurs par offre
   const _OFFRE_CFG = {
-    'gratuit':    { badge:'#94A3B8', bg:'#F8FAFC', border:'#E2E8F0', color:'#475569', label:'Gratuit',    usersDefault:1,  rapportsDefault:'5/mois',    canEditUsers:false, canEditRapports:false },
-    'starter':    { badge:'#F97316', bg:'#FFF7ED', border:'#FED7AA', color:'#c2410c', label:'Starter',    usersDefault:1,  rapportsDefault:'15/mois',   canEditUsers:false, canEditRapports:false },
-    'premium':    { badge:'#8B5CF6', bg:'#F5F3FF', border:'#DDD6FE', color:'#7c3aed', label:'Premium',    usersDefault:1,  rapportsDefault:'Illimités', canEditUsers:false, canEditRapports:false },
-    'entreprise': { badge:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', color:'#065f46', label:'Entreprise', usersDefault:10, rapportsDefault:'Illimités', canEditUsers:true,  canEditRapports:true  },
+    'gratuit':    { badge:'#94A3B8', bg:'rgba(148,163,184,0.1)', border:'rgba(148,163,184,0.3)', color:'#475569', label:'Gratuit',    usersDefault:1,  rapportsDefault:'5/mois',    canEditUsers:false, canEditRapports:false },
+    'starter':    { badge:'#F97316', bg:'rgba(249,115,22,0.08)', border:'rgba(249,115,22,0.25)', color:'#c2410c', label:'Starter',    usersDefault:1,  rapportsDefault:'15/mois',   canEditUsers:false, canEditRapports:false },
+    'premium':    { badge:'#8B5CF6', bg:'rgba(139,92,246,0.08)', border:'rgba(139,92,246,0.25)', color:'#7c3aed', label:'Premium',    usersDefault:1,  rapportsDefault:'Illimités', canEditUsers:false, canEditRapports:false },
+    'entreprise': { badge:'#10B981', bg:'rgba(16,185,129,0.08)', border:'rgba(16,185,129,0.25)', color:'#065f46', label:'Entreprise', usersDefault:10, rapportsDefault:'Illimités', canEditUsers:true,  canEditRapports:true  },
   };
   const _cfg = _OFFRE_CFG[_offreVal.toLowerCase()] || _OFFRE_CFG['gratuit'];
-
-  // Valeurs affichées (custom si renseigné, sinon défaut)
   const _usersDisplay    = _nbUsers > 0 ? _nbUsers : _cfg.usersDefault;
   const _rapportsDisplay = _nbRapports > 0 ? `${_nbRapports}/mois` : _cfg.rapportsDefault;
-
-  // Infos abonnement
-  const _typeAbo = p['Type abonnement'] || '';
-  const _dateAbo = p['Date abonnement'] || '';
 
   // Durée client
   let _clientDuration = '';
   if (_isClient && _dateAbo) {
-    const _startDate = new Date(_dateAbo); _startDate.setHours(0,0,0,0);
-    const _todayC = new Date(); _todayC.setHours(0,0,0,0);
-    const _clientDays = Math.round((_todayC - _startDate) / 86400000);
-    const _clientMonths = Math.floor(_clientDays / 30);
-    _clientDuration = _clientMonths >= 24 ? `${Math.floor(_clientMonths/12)} ans` : _clientMonths > 0 ? `${_clientMonths} mois` : `${_clientDays}j`;
+    const _s = new Date(_dateAbo); _s.setHours(0,0,0,0);
+    const _t = new Date(); _t.setHours(0,0,0,0);
+    const _m = Math.floor(Math.round((_t - _s) / 86400000) / 30);
+    _clientDuration = _m >= 24 ? `${Math.floor(_m/12)} ans` : _m > 0 ? `${_m} mois` : 'récent';
   }
 
-  // Card offre — pleine hauteur, contenu complet
-  const _offreCard = `
-    <div style="background:${_cfg.bg};border:2px solid ${_cfg.border};border-radius:12px;padding:16px;width:240px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;align-self:stretch;">
-      <!-- Header : badge offre + type abonnement -->
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
-        <span style="background:${_cfg.badge};color:#fff;border-radius:7px;padding:4px 14px;font-size:13px;font-weight:800;letter-spacing:0.4px;">${_cfg.label}</span>
-        ${_typeAbo ? `<span style="font-size:10px;font-weight:700;color:${_cfg.color};background:#fff;border:1.5px solid ${_cfg.border};border-radius:20px;padding:2px 9px;white-space:nowrap;">${_typeAbo === 'Annuel' ? '📆' : '📅'} ${_typeAbo}</span>` : (_isClient ? `<span onclick="openClientOffreModal('${_pid2}', true)" style="font-size:10px;color:${_cfg.color};opacity:0.6;cursor:pointer;border:1px dashed ${_cfg.border};border-radius:20px;padding:2px 8px;">+ type</span>` : '')}
-      </div>
-      <!-- Limites : utilisateurs + rapports -->
-      <div style="display:flex;flex-wrap:wrap;gap:6px;">
-        ${_cfg.canEditUsers || _isEntreprise
-          ? `<span onclick="openEditNbUsers('${_pid2}')" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:7px;font-size:11px;font-weight:700;color:${_cfg.color};cursor:pointer;">👥 ${_usersDisplay} util.<span style="font-size:9px;opacity:0.45;margin-left:2px;">✏️</span></span>`
-          : `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:7px;font-size:11px;font-weight:700;color:${_cfg.color};">👥 ${_usersDisplay} util.</span>`}
-        ${_cfg.canEditRapports || _isEntreprise
-          ? `<span onclick="openEditNbRapports('${_pid2}')" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:7px;font-size:11px;font-weight:700;color:${_cfg.color};cursor:pointer;">📄 ${_rapportsDisplay}<span style="font-size:9px;opacity:0.45;margin-left:2px;">✏️</span></span>`
-          : `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:7px;font-size:11px;font-weight:700;color:${_cfg.color};">📄 ${_rapportsDisplay}</span>`}
-      </div>
-      <!-- Infos abonnement (clients seulement) -->
-      ${_isClient ? `
-      <div style="border-top:1px solid ${_cfg.border};padding-top:8px;display:flex;flex-direction:column;gap:4px;">
-        ${_dateAbo ? `
-          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:${_cfg.color};">
-            <span style="opacity:0.55;">📅</span>
-            <span>Depuis ${formatDate(_dateAbo)}</span>
-            ${_clientDuration ? `<span style="background:${_cfg.badge};color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:auto;">${_clientDuration}</span>` : ''}
-          </div>` : `
-          <span onclick="openClientOffreModal('${_pid2}', true)" style="font-size:11px;color:${_cfg.color};cursor:pointer;opacity:0.65;">+ Renseigner la date d'abonnement</span>`}
-      </div>` : ''}
-      <!-- Actions -->
-      <div style="margin-top:auto;display:flex;flex-direction:column;gap:5px;">
-        ${_isClient
-          ? `<button onclick="openClientOffreModal('${_pid2}', true)" style="width:100%;padding:7px 10px;background:${_cfg.badge};color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Poppins',sans-serif;letter-spacing:0.2px;">⬆ Faire évoluer l'abonnement</button>`
-          : `<button onclick="openEditOffre('${_pid2}')" style="width:100%;padding:7px 10px;background:transparent;color:${_cfg.color};border:1.5px solid ${_cfg.border};border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Poppins',sans-serif;">✏️ Changer l'offre</button>`}
-      </div>
-    </div>`;
+  // Chip offre : badge + limites + infos client si applicable
+  const _editAction = _isClient ? `openClientOffreModal('${_pid2}', true)` : `openEditOffre('${_pid2}')`;
+  const _usersTag = (_cfg.canEditUsers || _isEntreprise)
+    ? `<span onclick="openEditNbUsers('${_pid2}')" style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#fff;border:1px solid ${_cfg.border};border-radius:5px;font-size:11px;font-weight:600;color:${_cfg.color};cursor:pointer;">👥${_usersDisplay}<span style="font-size:9px;opacity:0.4;">✏️</span></span>`
+    : `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#fff;border:1px solid ${_cfg.border};border-radius:5px;font-size:11px;font-weight:600;color:${_cfg.color};">👥${_usersDisplay}</span>`;
+  const _rapportsTag = (_cfg.canEditRapports || _isEntreprise)
+    ? `<span onclick="openEditNbRapports('${_pid2}')" style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#fff;border:1px solid ${_cfg.border};border-radius:5px;font-size:11px;font-weight:600;color:${_cfg.color};cursor:pointer;">📄${_rapportsDisplay}<span style="font-size:9px;opacity:0.4;">✏️</span></span>`
+    : `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#fff;border:1px solid ${_cfg.border};border-radius:5px;font-size:11px;font-weight:600;color:${_cfg.color};">📄${_rapportsDisplay}</span>`;
 
+  const _offreChip = `
+    <div onclick="${_editAction}" style="display:inline-flex;align-items:center;gap:8px;background:${_cfg.bg};border:1.5px solid ${_cfg.border};border-radius:8px;padding:5px 10px;cursor:pointer;transition:opacity 0.15s;" title="${_isClient ? 'Modifier l\'abonnement' : 'Modifier l\'offre'}" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+      <span style="background:${_cfg.badge};color:#fff;border-radius:5px;padding:2px 9px;font-size:11px;font-weight:800;letter-spacing:0.2px;white-space:nowrap;">${_cfg.label}</span>
+      ${_typeAbo ? `<span style="font-size:10px;color:${_cfg.color};font-weight:600;white-space:nowrap;">${_typeAbo === 'Annuel' ? '📆' : '📅'} ${_typeAbo}</span>` : ''}
+      ${_usersTag}
+      ${_rapportsTag}
+      ${_clientDuration ? `<span style="font-size:10px;color:${_cfg.color};font-weight:600;opacity:0.7;white-space:nowrap;">${_clientDuration}</span>` : ''}
+    </div>`;
 
   document.getElementById('prospect-page-content').innerHTML = loadingBarHtml + staleBannerHtml + `
     <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:14px;">
@@ -1680,16 +1656,13 @@ function renderFullProspect() {
         <div class="detail-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
           <!-- Identité -->
           <div style="padding:22px 24px 18px;border-bottom:1px solid var(--border);">
-            <div style="display:flex;align-items:stretch;justify-content:space-between;gap:16px;margin-bottom:12px;">
-              <div style="flex:1;min-width:0;padding-top:2px;">
-                <div style="font-size:22px;font-weight:800;color:var(--navy);line-height:1.2;">${esc(p['Entreprise'] || p['Nom'] || '—')}</div>
-                <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap;">
-                  ${p['Nom'] && p['Nom'] !== p['Entreprise'] ? `<span style="font-size:14px;font-weight:600;color:var(--text-2);">👤 ${esc(p['Nom'])}</span>` : ''}
-                  ${p['Nom'] && p['Nom'] !== p['Entreprise'] && p['Secteur'] ? `<span style="color:var(--border);">·</span>` : ''}
-                  ${p['Secteur'] ? `<span style="font-size:12px;color:var(--text-3);background:var(--bg);padding:2px 8px;border-radius:20px;">${esc(p['Secteur'])}</span>` : ''}
-                </div>
+            <div style="margin-bottom:12px;">
+              <div style="font-size:22px;font-weight:800;color:var(--navy);line-height:1.2;">${esc(p['Entreprise'] || p['Nom'] || '—')}</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap;">
+                ${p['Nom'] && p['Nom'] !== p['Entreprise'] ? `<span style="font-size:14px;font-weight:600;color:var(--text-2);">👤 ${esc(p['Nom'])}</span>` : ''}
+                ${p['Nom'] && p['Nom'] !== p['Entreprise'] && p['Secteur'] ? `<span style="color:var(--border);">·</span>` : ''}
+                ${p['Secteur'] ? `<span style="font-size:12px;color:var(--text-3);background:var(--bg);padding:2px 8px;border-radius:20px;">${esc(p['Secteur'])}</span>` : ''}
               </div>
-              ${_offreCard}
             </div>
             <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
               ${prospectTags.map(t => { const tObj = tags.find(tg => tg['Nom'] === t); const color = tObj?.Couleur || '#94A3B8';
@@ -1698,16 +1671,21 @@ function renderFullProspect() {
             </div>
           </div>
 
-          <!-- Stats -->
-          <div style="display:flex;align-items:center;padding:10px 20px;border-bottom:1px solid var(--border);background:#fafbfc;gap:20px;">
-            <div style="display:flex;align-items:baseline;gap:6px;">
-              <span style="font-size:22px;font-weight:800;color:#1a3c5e;">${_nbAppels}</span>
-              <span style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Appels</span>
+          <!-- Stats + Offre -->
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-bottom:1px solid var(--border);background:#fafbfc;gap:12px;">
+            <div style="display:flex;gap:20px;align-items:center;flex-shrink:0;">
+              <div style="display:flex;align-items:baseline;gap:6px;">
+                <span style="font-size:22px;font-weight:800;color:#1a3c5e;">${_nbAppels}</span>
+                <span style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Appels</span>
+              </div>
+              <div style="width:1px;height:20px;background:var(--border);"></div>
+              <div style="display:flex;align-items:baseline;gap:6px;">
+                <span style="font-size:22px;font-weight:800;color:#3B82F6;">${_demosFaites}</span>
+                <span style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Démos</span>
+              </div>
             </div>
-            <div style="width:1px;height:20px;background:var(--border);"></div>
-            <div style="display:flex;align-items:baseline;gap:6px;">
-              <span style="font-size:22px;font-weight:800;color:#3B82F6;">${_demosFaites}</span>
-              <span style="font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:0.5px;">Démos</span>
+            <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;">
+              ${_offreChip}
             </div>
           </div>
 
@@ -2987,7 +2965,7 @@ function renderResumeCard(p) {
     if (_dateAbo) {
       html += `<div class="right-item"><div class="right-item-label">Depuis</div><div class="right-item-value">${formatDate(_dateAbo)}</div></div>`;
     }
-    html += `<button onclick="openClientOffreModal('${pid}')" style="width:100%;margin-top:6px;padding:6px 10px;background:transparent;border:1.5px solid var(--border);border-radius:8px;font-size:11px;font-weight:600;color:var(--text-2);cursor:pointer;font-family:'Poppins',sans-serif;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-2)'">✏️ Modifier l'abonnement</button>`;
+    html += `<button onclick="openClientOffreModal('${p['ID']}')" style="width:100%;margin-top:6px;padding:6px 10px;background:transparent;border:1.5px solid var(--border);border-radius:8px;font-size:11px;font-weight:600;color:var(--text-2);cursor:pointer;font-family:'Poppins',sans-serif;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-2)'">✏️ Modifier l'abonnement</button>`;
   }
 
   // ── Liens utiles ──────────────────────────────────────────
