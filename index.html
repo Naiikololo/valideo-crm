@@ -1261,7 +1261,11 @@ function renderProspectsTable() {
     const isSoon = !isLate && p['Date relance'] && (p['Date relance'] || '').substring(0,10) <= tomorrow && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']);
     const isDrawerSelected = selectedProspect && selectedProspect['ID'] === p['ID'] && drawerOpen;
     const rowClass = isDrawerSelected ? 'drawer-open' : isLate ? 'row-late' : isSoon ? 'row-soon' : '';
-    return `<div class="table-row ${rowClass} ${p['Statut'] === 'Mise en sommeil' ? 'sommeil' : ''}" onclick="openDrawer('${p['ID']}')">
+    const statutColor = statut.Couleur || '#94A3B8';
+    const rowStyle = (!isDrawerSelected && !isLate && !isSoon && p['Statut'] !== 'Mise en sommeil')
+      ? `background:${statutColor}0f;border-left:3px solid ${statutColor}88;padding-left:13px;`
+      : '';
+    return `<div class="table-row ${rowClass} ${p['Statut'] === 'Mise en sommeil' ? 'sommeil' : ''}" style="${rowStyle}" onclick="openDrawer('${p['ID']}')">
       <div>
         ${p['Date création'] ? `<div style="font-size:10px;color:var(--text-3);margin-bottom:2px;">${formatDate(p['Date création'])}</div>` : ''}
         <div class="prospect-name">${esc(p['Entreprise'] || p['Nom'] || '—')}</div>
