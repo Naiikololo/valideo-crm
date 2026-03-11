@@ -1681,6 +1681,7 @@ function renderFullProspect() {
 
   const _offreChip = `
     <div style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">
+      ${!_dateResil ? `
       <div onclick="${_editAction}" style="display:inline-flex;align-items:center;gap:8px;background:${_cfg.bg};border:1.5px solid ${_cfg.border};border-radius:8px;padding:5px 10px;cursor:pointer;transition:opacity 0.15s;" title="${_isClient ? 'Modifier l\'abonnement' : 'Modifier l\'offre'}" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
         <span style="background:${_cfg.badge};color:#fff;border-radius:5px;padding:2px 9px;font-size:11px;font-weight:800;letter-spacing:0.2px;white-space:nowrap;">${_cfg.label}</span>
         ${_typeAbo ? `<span style="font-size:10px;color:${_cfg.color};font-weight:600;white-space:nowrap;">${_typeAbo === 'Annuel' ? '📆' : '📅'} ${_typeAbo}</span>` : ''}
@@ -1688,12 +1689,14 @@ function renderFullProspect() {
         ${_rapportsTag}
         ${_dateAbo ? `<span style="font-size:10px;color:${_cfg.color};font-weight:600;opacity:0.65;white-space:nowrap;border-left:1px solid ${_cfg.border};padding-left:8px;">📅 ${formatDate(_dateAbo)}${_clientDuration ? ` <span style="opacity:0.7;">(${_clientDuration})</span>` : ''}</span>` : ''}
       </div>
-      ${_isClient && !_dateResil ? `<span onclick="openResilModal('${_pid2}')" style="font-size:11px;color:#94A3B8;cursor:pointer;text-decoration:underline;white-space:nowrap;" title="Enregistrer une résiliation">Résilier</span>` : ''}
-      ${_dateResil ? `<div style="display:inline-flex;align-items:center;gap:6px;background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:8px;padding:5px 10px;cursor:pointer;" onclick="openResilModal('${_pid2}')" title="Modifier la résiliation">
+      ${_isClient ? `<span onclick="openResilModal('${_pid2}')" style="font-size:11px;color:#94A3B8;cursor:pointer;text-decoration:underline;white-space:nowrap;">Résilier</span>` : ''}
+      ` : `
+      <div style="display:inline-flex;align-items:center;gap:6px;background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:8px;padding:5px 10px;cursor:pointer;" onclick="openResilModal('${_pid2}')" title="Modifier la résiliation">
         <span style="background:#EF4444;color:#fff;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:800;white-space:nowrap;">❌ Résilié</span>
         <span style="font-size:10px;color:#DC2626;font-weight:600;white-space:nowrap;">${formatDate(_dateResil)}</span>
         ${_motifResil ? `<span style="font-size:10px;color:#DC2626;opacity:0.75;white-space:nowrap;border-left:1px solid #FCA5A5;padding-left:6px;">${esc(_motifResil)}</span>` : ''}
-      </div>` : ''}
+      </div>
+      `}
     </div>`;
 
   document.getElementById('prospect-page-content').innerHTML = loadingBarHtml + staleBannerHtml + `
