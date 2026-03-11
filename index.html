@@ -2021,7 +2021,7 @@ async function confirmRelance() {
     _creatingRelance = false;
     showToast('❌ Erreur réseau — la relance locale est sauvegardée mais pas dans Calendar', 'error');
   });
-  api('updateProspect', { id: p['ID'], dateRelance: date });
+  api('updateProspect', { id: p['ID'], dateRelance: date }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde relance : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — date relance non sauvegardée', 'error'));
 }
 
 // ─── EDIT OFFRE ──────────────────────────────────────────
@@ -2311,7 +2311,7 @@ async function deleteStatutOptimistic(id) {
       if (p['Statut'] === deletedStatut['Nom']) {
         const fallbackStatut = parametres['statut_defaut'] || 'Nouveau';
         p['Statut'] = fallbackStatut;
-        api('updateProspect', { id: p['ID'], statut: fallbackStatut });
+        api('updateProspect', { id: p['ID'], statut: fallbackStatut }).catch(() => {});
       }
     });
   }
@@ -2343,7 +2343,7 @@ async function deleteTagOptimistic(id) {
       if (p['Tags'] && p['Tags'].split(',').includes(tagName)) {
         const newTags = p['Tags'].split(',').filter(t => t !== tagName).join(',');
         p['Tags'] = newTags;
-        api('updateProspect', { id: p['ID'], tags: newTags });
+        api('updateProspect', { id: p['ID'], tags: newTags }).catch(() => {});
       }
     });
     if (selectedProspect?.['Tags']?.split(',').includes(tagName)) {
@@ -2852,7 +2852,7 @@ async function deleteEvenement(evenementId, eventIdCalendar, type) {
     if (selectedProspect?.['ID'] == pid) selectedProspect['Date relance'] = '';
     renderProspectsTable(); renderDashboard();
     if (drawerOpen) renderDrawer();
-    api('updateProspect', { id: pid, dateRelance: '' });
+    api('updateProspect', { id: pid, dateRelance: '' }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — date relance non effacée', 'error'));
   }
   showToast('Suppression en cours...', 'success');
   const action = eventIdCalendar ? (type === 'meet' ? 'deleteMeetCalendar' : 'deleteRelanceCalendar') : 'deleteEvenement';
