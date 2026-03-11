@@ -970,19 +970,36 @@
 
 <!-- MODAL CLIENT OFFRE (triggered when status changes to Client) -->
 <div id="modal-client-offre" class="modal-overlay hidden">
-  <div class="modal" style="max-width:420px;">
-    <div class="modal-title">🎉 Nouveau client !</div>
-    <div style="font-size:13px;color:var(--text-2);margin-bottom:20px;">Renseigne les infos d'abonnement pour finaliser.</div>
+  <div class="modal" style="max-width:480px;">
+    <div id="modal-client-offre-title" class="modal-title">🎉 Nouveau client !</div>
+    <div id="modal-client-offre-subtitle" style="font-size:13px;color:var(--text-2);margin-bottom:20px;">Choisis l'offre souscrite pour finaliser.</div>
+
+    <!-- Sélecteur visuel offres (pas de Gratuit) -->
     <div class="modal-field">
       <label class="modal-label">Offre souscrite</label>
-      <select class="modal-select" id="client-offre-select" onchange="onClientOffreChange()">
-        <option value="">-- Choisir l'offre --</option>
-        <option>Gratuit</option>
-        <option>Starter</option>
-        <option>Premium</option>
-        <option>Entreprise</option>
-      </select>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:6px;" id="client-offre-grid">
+        <div class="client-offre-btn" data-offre="Starter" onclick="selectClientOffre('Starter')"
+          style="border:2px solid #FED7AA;border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;transition:all 0.15s;background:#FFF7ED;">
+          <div style="background:#F97316;color:#fff;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:800;display:inline-block;margin-bottom:6px;">Starter</div>
+          <div style="font-size:10px;color:#c2410c;font-weight:600;">1 util.</div>
+          <div style="font-size:10px;color:#c2410c;">15 rapp./mois</div>
+        </div>
+        <div class="client-offre-btn" data-offre="Premium" onclick="selectClientOffre('Premium')"
+          style="border:2px solid #DDD6FE;border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;transition:all 0.15s;background:#F5F3FF;">
+          <div style="background:#8B5CF6;color:#fff;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:800;display:inline-block;margin-bottom:6px;">Premium</div>
+          <div style="font-size:10px;color:#7c3aed;font-weight:600;">1 util.</div>
+          <div style="font-size:10px;color:#7c3aed;">Illimités</div>
+        </div>
+        <div class="client-offre-btn" data-offre="Entreprise" onclick="selectClientOffre('Entreprise')"
+          style="border:2px solid #A7F3D0;border-radius:10px;padding:10px 8px;text-align:center;cursor:pointer;transition:all 0.15s;background:#ECFDF5;">
+          <div style="background:#10B981;color:#fff;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:800;display:inline-block;margin-bottom:6px;">Entreprise</div>
+          <div style="font-size:10px;color:#065f46;font-weight:600;">10 util.</div>
+          <div style="font-size:10px;color:#065f46;">Illimités</div>
+        </div>
+      </div>
+      <input type="hidden" id="client-offre-select" value="">
     </div>
+
     <div id="client-abonnement-fields" class="hidden">
       <div class="modal-field">
         <label class="modal-label">Type d'abonnement</label>
@@ -1004,7 +1021,7 @@
     </div>
     <div class="modal-btns">
       <button class="btn-save" onclick="confirmClientOffre()">Enregistrer</button>
-      <button class="btn-cancel" onclick="closeModal('modal-client-offre')">Passer</button>
+      <button id="btn-skip-offre" class="btn-cancel hidden" onclick="closeModal('modal-client-offre')">Passer</button>
     </div>
   </div>
 </div>
@@ -1563,7 +1580,7 @@ function renderFullProspect() {
 
   // Couleurs par offre
   const _OFFRE_CFG = {
-    'gratuit':    { badge:'#94A3B8', bg:'#F8FAFC', border:'#E2E8F0', color:'#64748b', label:'Gratuit',    usersDefault:1,  rapportsDefault:'5/mois',    canEditUsers:false, canEditRapports:false },
+    'gratuit':    { badge:'#94A3B8', bg:'#F8FAFC', border:'#E2E8F0', color:'#475569', label:'Gratuit',    usersDefault:1,  rapportsDefault:'5/mois',    canEditUsers:false, canEditRapports:false },
     'starter':    { badge:'#F97316', bg:'#FFF7ED', border:'#FED7AA', color:'#c2410c', label:'Starter',    usersDefault:1,  rapportsDefault:'15/mois',   canEditUsers:false, canEditRapports:false },
     'premium':    { badge:'#8B5CF6', bg:'#F5F3FF', border:'#DDD6FE', color:'#7c3aed', label:'Premium',    usersDefault:1,  rapportsDefault:'Illimités', canEditUsers:false, canEditRapports:false },
     'entreprise': { badge:'#10B981', bg:'#ECFDF5', border:'#A7F3D0', color:'#065f46', label:'Entreprise', usersDefault:10, rapportsDefault:'Illimités', canEditUsers:true,  canEditRapports:true  },
@@ -1574,45 +1591,56 @@ function renderFullProspect() {
   const _usersDisplay    = _nbUsers > 0 ? _nbUsers : _cfg.usersDefault;
   const _rapportsDisplay = _nbRapports > 0 ? `${_nbRapports}/mois` : _cfg.rapportsDefault;
 
-  // Infos abonnement (clients payants)
+  // Infos abonnement
   const _typeAbo = p['Type abonnement'] || '';
   const _dateAbo = p['Date abonnement'] || '';
-  let _aboLines  = '';
-  if (_isClient && _isPayant) {
-    if (_typeAbo) _aboLines += `<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:${_cfg.color};font-weight:600;">${_typeAbo === 'Annuel' ? '📆' : '📅'} ${_typeAbo}</div>`;
-    if (_dateAbo) {
-      const _todayD = new Date(); _todayD.setHours(0,0,0,0);
-      const _nextAnni = new Date(_dateAbo); _nextAnni.setFullYear(_todayD.getFullYear());
-      if (_nextAnni < _todayD) _nextAnni.setFullYear(_todayD.getFullYear() + 1);
-      const _daysUntil = Math.round((_nextAnni - _todayD) / 86400000);
-      _aboLines += `<div style="font-size:11px;color:#64748b;">Depuis ${formatDate(_dateAbo)}</div>`;
-      _aboLines += `<div style="font-size:11px;color:${_daysUntil <= 30 ? '#F97316' : '#94a3b8'};">🗓 Anniversaire dans ${_daysUntil}j</div>`;
-    }
-    if (!_typeAbo && !_dateAbo) _aboLines += `<div style="font-size:11px;color:#94a3b8;cursor:pointer;" onclick="openClientOffreModal('${_pid2}')">+ Renseigner l'abonnement</div>`;
+
+  // Durée client
+  let _clientDuration = '';
+  if (_isClient && _dateAbo) {
+    const _startDate = new Date(_dateAbo); _startDate.setHours(0,0,0,0);
+    const _todayC = new Date(); _todayC.setHours(0,0,0,0);
+    const _clientDays = Math.round((_todayC - _startDate) / 86400000);
+    const _clientMonths = Math.floor(_clientDays / 30);
+    _clientDuration = _clientMonths >= 24 ? `${Math.floor(_clientMonths/12)} ans` : _clientMonths > 0 ? `${_clientMonths} mois` : `${_clientDays}j`;
   }
 
-  // Boutons users / rapports
-  const _usersBtn = (_cfg.canEditUsers || _isEntreprise)
-    ? `<span onclick="openEditNbUsers('${_pid2}')" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:6px;font-size:11px;font-weight:700;color:${_cfg.color};cursor:pointer;">👥 ${_usersDisplay} util. <span style="font-size:9px;opacity:0.5;">✏️</span></span>`
-    : `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:6px;font-size:11px;font-weight:700;color:${_cfg.color};">👥 ${_usersDisplay} util.</span>`;
-  const _rapportsBtn = (_cfg.canEditRapports || _isEntreprise)
-    ? `<span onclick="openEditNbRapports('${_pid2}')" style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:6px;font-size:11px;font-weight:700;color:${_cfg.color};cursor:pointer;">📄 ${_rapportsDisplay} <span style="font-size:9px;opacity:0.5;">✏️</span></span>`
-    : `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:6px;font-size:11px;font-weight:700;color:${_cfg.color};">📄 ${_rapportsDisplay}</span>`;
-
-  const _editOffreBtn = `<span onclick="${_isClient ? `openClientOffreModal('${_pid2}')` : `openEditOffre('${_pid2}')`}" style="display:inline-flex;align-items:center;padding:3px 8px;background:transparent;border:1.5px solid ${_cfg.border};border-radius:6px;font-size:10px;color:${_cfg.color};cursor:pointer;opacity:0.7;" title="Modifier l'offre">✏️</span>`;
-
+  // Card offre — pleine hauteur, contenu complet
   const _offreCard = `
-    <div style="background:${_cfg.bg};border:1.5px solid ${_cfg.border};border-radius:12px;padding:12px 14px;min-width:190px;max-width:240px;display:flex;flex-direction:column;gap:8px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
-        <span style="background:${_cfg.badge};color:#fff;border-radius:6px;padding:3px 12px;font-size:12px;font-weight:800;letter-spacing:0.3px;">${_cfg.label}</span>
-        ${_editOffreBtn}
+    <div style="background:${_cfg.bg};border:2px solid ${_cfg.border};border-radius:12px;padding:16px;width:240px;flex-shrink:0;display:flex;flex-direction:column;gap:10px;align-self:stretch;">
+      <!-- Header : badge offre + type abonnement -->
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:6px;">
+        <span style="background:${_cfg.badge};color:#fff;border-radius:7px;padding:4px 14px;font-size:13px;font-weight:800;letter-spacing:0.4px;">${_cfg.label}</span>
+        ${_typeAbo ? `<span style="font-size:10px;font-weight:700;color:${_cfg.color};background:#fff;border:1.5px solid ${_cfg.border};border-radius:20px;padding:2px 9px;white-space:nowrap;">${_typeAbo === 'Annuel' ? '📆' : '📅'} ${_typeAbo}</span>` : (_isClient ? `<span onclick="openClientOffreModal('${_pid2}', true)" style="font-size:10px;color:${_cfg.color};opacity:0.6;cursor:pointer;border:1px dashed ${_cfg.border};border-radius:20px;padding:2px 8px;">+ type</span>` : '')}
       </div>
-      <div style="display:flex;flex-wrap:wrap;gap:5px;">
-        ${_usersBtn}
-        ${_rapportsBtn}
+      <!-- Limites : utilisateurs + rapports -->
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        ${_cfg.canEditUsers || _isEntreprise
+          ? `<span onclick="openEditNbUsers('${_pid2}')" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:7px;font-size:11px;font-weight:700;color:${_cfg.color};cursor:pointer;">👥 ${_usersDisplay} util.<span style="font-size:9px;opacity:0.45;margin-left:2px;">✏️</span></span>`
+          : `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:7px;font-size:11px;font-weight:700;color:${_cfg.color};">👥 ${_usersDisplay} util.</span>`}
+        ${_cfg.canEditRapports || _isEntreprise
+          ? `<span onclick="openEditNbRapports('${_pid2}')" style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:7px;font-size:11px;font-weight:700;color:${_cfg.color};cursor:pointer;">📄 ${_rapportsDisplay}<span style="font-size:9px;opacity:0.45;margin-left:2px;">✏️</span></span>`
+          : `<span style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;background:#fff;border:1.5px solid ${_cfg.border};border-radius:7px;font-size:11px;font-weight:700;color:${_cfg.color};">📄 ${_rapportsDisplay}</span>`}
       </div>
-      ${_aboLines ? `<div style="display:flex;flex-direction:column;gap:2px;padding-top:4px;border-top:1px solid ${_cfg.border};">${_aboLines}</div>` : ''}
+      <!-- Infos abonnement (clients seulement) -->
+      ${_isClient ? `
+      <div style="border-top:1px solid ${_cfg.border};padding-top:8px;display:flex;flex-direction:column;gap:4px;">
+        ${_dateAbo ? `
+          <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:${_cfg.color};">
+            <span style="opacity:0.55;">📅</span>
+            <span>Depuis ${formatDate(_dateAbo)}</span>
+            ${_clientDuration ? `<span style="background:${_cfg.badge};color:#fff;border-radius:4px;padding:1px 6px;font-size:10px;font-weight:700;margin-left:auto;">${_clientDuration}</span>` : ''}
+          </div>` : `
+          <span onclick="openClientOffreModal('${_pid2}', true)" style="font-size:11px;color:${_cfg.color};cursor:pointer;opacity:0.65;">+ Renseigner la date d'abonnement</span>`}
+      </div>` : ''}
+      <!-- Actions -->
+      <div style="margin-top:auto;display:flex;flex-direction:column;gap:5px;">
+        ${_isClient
+          ? `<button onclick="openClientOffreModal('${_pid2}', true)" style="width:100%;padding:7px 10px;background:${_cfg.badge};color:#fff;border:none;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Poppins',sans-serif;letter-spacing:0.2px;">⬆ Faire évoluer l'abonnement</button>`
+          : `<button onclick="openEditOffre('${_pid2}')" style="width:100%;padding:7px 10px;background:transparent;color:${_cfg.color};border:1.5px solid ${_cfg.border};border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;font-family:'Poppins',sans-serif;">✏️ Changer l'offre</button>`}
+      </div>
     </div>`;
+
 
   document.getElementById('prospect-page-content').innerHTML = loadingBarHtml + staleBannerHtml + `
     <div style="background:var(--surface);border-bottom:1px solid var(--border);padding:16px 32px;display:flex;align-items:center;gap:14px;">
@@ -1652,8 +1680,8 @@ function renderFullProspect() {
         <div class="detail-card" style="padding:0;overflow:hidden;margin-bottom:14px;">
           <!-- Identité -->
           <div style="padding:22px 24px 18px;border-bottom:1px solid var(--border);">
-            <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:12px;">
-              <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:stretch;justify-content:space-between;gap:16px;margin-bottom:12px;">
+              <div style="flex:1;min-width:0;padding-top:2px;">
                 <div style="font-size:22px;font-weight:800;color:var(--navy);line-height:1.2;">${esc(p['Entreprise'] || p['Nom'] || '—')}</div>
                 <div style="display:flex;align-items:center;gap:6px;margin-top:5px;flex-wrap:wrap;">
                   ${p['Nom'] && p['Nom'] !== p['Entreprise'] ? `<span style="font-size:14px;font-weight:600;color:var(--text-2);">👤 ${esc(p['Nom'])}</span>` : ''}
@@ -1895,11 +1923,18 @@ function changeStatut(statut) {
   const idx = prospects.findIndex(p => p['ID'] == pid);
   if (idx !== -1) prospects[idx]['Statut'] = statut;
   selectedProspect['Statut'] = statut;
+  // Passage Client : forcer Starter immédiatement si offre Gratuit/vide
+  if (statut === 'Client') {
+    const _curOffre = selectedProspect['Offre intéressée'] || '';
+    if (!_curOffre || _curOffre === 'Gratuit') {
+      if (idx !== -1) prospects[idx]['Offre intéressée'] = 'Starter';
+      selectedProspect['Offre intéressée'] = 'Starter';
+    }
+  }
   renderProspectsTable(); renderDashboard();
   if (drawerOpen) renderDrawer();
   if (currentView === 'prospect') renderFullProspect();
   api('updateProspect', { id: pid, statut }).then(r => { if (r?.error) showToast('❌ Erreur mise à jour statut : ' + r.error, 'error'); });
-  // Ask for offre when becoming client
   if (statut === 'Client') openClientOffreModal(pid);
 }
 
@@ -2655,36 +2690,68 @@ function confirmEventDateEdit() {
 
 // ─── CLIENT OFFRE MODAL ────────────────────────────────────
 let _pendingClientOffreProspectId = null;
+let _isUpgradeMode = false; // true = modification d'offre existante, false = nouveau client
 
-function openClientOffreModal(pid) {
+function openClientOffreModal(pid, upgradeMode = false) {
   _pendingClientOffreProspectId = pid;
+  _isUpgradeMode = upgradeMode;
   const p = prospects.find(pr => pr['ID'] == pid);
-  const offre = p?.['Offre intéressée'] || '';
-  document.getElementById('client-offre-select').value = offre;
-  document.getElementById('client-date-abonnement').value = new Date().toISOString().split('T')[0];
-  // Reset radios
+  const currentOffre = p?.['Offre intéressée'] || '';
+  const isPayantCurrent = currentOffre && currentOffre !== 'Gratuit';
+
+  // Titre contextuel
+  document.getElementById('modal-client-offre-title').textContent = upgradeMode ? '📦 Modifier l\'abonnement' : '🎉 Nouveau client !';
+  document.getElementById('modal-client-offre-subtitle').textContent = upgradeMode ? 'Fais évoluer l\'offre ou les infos d\'abonnement.' : 'Choisis l\'offre souscrite pour finaliser.';
+
+  // Bouton Passer uniquement en mode modification
+  document.getElementById('btn-skip-offre').classList.toggle('hidden', !upgradeMode);
+
+  // Sélectionner l'offre courante (ou Starter par défaut)
+  const defaultOffre = isPayantCurrent ? currentOffre : 'Starter';
+  selectClientOffre(defaultOffre);
+
+  // Date par défaut = aujourd'hui, ou existante
+  document.getElementById('client-date-abonnement').value = p?.['Date abonnement'] || new Date().toISOString().split('T')[0];
+
+  // Reset + pré-sélectionner type abonnement
   document.querySelectorAll('input[name="client-abonnement-type"]').forEach(r => {
     r.checked = false;
     document.getElementById('label-' + r.value.toLowerCase()).style.borderColor = 'var(--border)';
     document.getElementById('label-' + r.value.toLowerCase()).style.background = '';
     document.getElementById('label-' + r.value.toLowerCase()).style.color = '';
   });
-  // Pré-sélectionner si déjà renseigné
   if (p?.['Type abonnement']) {
     const r = document.querySelector(`input[name="client-abonnement-type"][value="${p['Type abonnement']}"]`);
     if (r) { r.checked = true; onAbonnementTypeChange(); }
   }
-  if (p?.['Date abonnement']) document.getElementById('client-date-abonnement').value = p['Date abonnement'];
-  // Afficher/masquer champs selon offre
-  const showAbo = offre && offre !== 'Gratuit';
-  document.getElementById('client-abonnement-fields').classList.toggle('hidden', !showAbo);
+  document.getElementById('client-abonnement-fields').classList.remove('hidden');
   document.getElementById('modal-client-offre').classList.remove('hidden');
 }
 
-function onClientOffreChange() {
-  const offre = document.getElementById('client-offre-select').value;
-  document.getElementById('client-abonnement-fields').classList.toggle('hidden', !offre || offre === 'Gratuit');
+function selectClientOffre(offre) {
+  document.getElementById('client-offre-select').value = offre;
+  // Styles sélecteur visuel
+  document.querySelectorAll('.client-offre-btn').forEach(btn => {
+    const isSelected = btn.dataset.offre === offre;
+    const cfgMap = {
+      'Starter':    { border:'#F97316', shadow:'rgba(249,115,22,0.2)' },
+      'Premium':    { border:'#8B5CF6', shadow:'rgba(139,92,246,0.2)' },
+      'Entreprise': { border:'#10B981', shadow:'rgba(16,185,129,0.2)' },
+    };
+    const cfg = cfgMap[btn.dataset.offre] || {};
+    if (isSelected) {
+      btn.style.borderColor = cfg.border;
+      btn.style.boxShadow = `0 0 0 3px ${cfg.shadow}`;
+      btn.style.transform = 'scale(1.03)';
+    } else {
+      btn.style.borderColor = '';
+      btn.style.boxShadow = '';
+      btn.style.transform = '';
+    }
+  });
 }
+
+function onClientOffreChange() {} // kept for compat, no longer needed
 
 function onAbonnementTypeChange() {
   ['mensuel', 'annuel'].forEach(t => {
@@ -2704,26 +2771,32 @@ function onAbonnementTypeChange() {
 
 function confirmClientOffre() {
   const offre = document.getElementById('client-offre-select').value;
-  const pid = _pendingClientOffreProspectId;
-  const isPayant = offre && offre !== 'Gratuit';
-  const typeAbonnement = isPayant ? (document.querySelector('input[name="client-abonnement-type"]:checked')?.value || '') : '';
-  const dateAbonnement = isPayant ? (document.getElementById('client-date-abonnement').value || '') : '';
-  if (isPayant && !typeAbonnement) { showToast('⚠️ Choisis un type d\'abonnement (Mensuel ou Annuel)', 'error'); return; }
+  const pid   = _pendingClientOffreProspectId;
+  if (!offre) { showToast('⚠️ Choisis une offre', 'error'); return; }
+  const typeAbonnement = document.querySelector('input[name="client-abonnement-type"]:checked')?.value || '';
+  const dateAbonnement = document.getElementById('client-date-abonnement').value || '';
+  if (!typeAbonnement) { showToast('⚠️ Choisis un type d\'abonnement (Mensuel ou Annuel)', 'error'); return; }
+
   closeModal('modal-client-offre');
-  if (!offre || !pid) return;
+
   const idx = prospects.findIndex(p => p['ID'] == pid);
   if (idx !== -1) {
     prospects[idx]['Offre intéressée'] = offre;
-    if (isPayant) { prospects[idx]['Type abonnement'] = typeAbonnement; prospects[idx]['Date abonnement'] = dateAbonnement; }
+    prospects[idx]['Type abonnement']  = typeAbonnement;
+    prospects[idx]['Date abonnement']  = dateAbonnement;
   }
   if (selectedProspect?.['ID'] == pid) {
     selectedProspect['Offre intéressée'] = offre;
-    if (isPayant) { selectedProspect['Type abonnement'] = typeAbonnement; selectedProspect['Date abonnement'] = dateAbonnement; }
+    selectedProspect['Type abonnement']  = typeAbonnement;
+    selectedProspect['Date abonnement']  = dateAbonnement;
   }
+
+  renderProspectsTable(); renderDashboard();
+  if (drawerOpen) renderDrawer();
   if (currentView === 'prospect') renderFullProspect();
-  renderProspectsTable();
-  showToast('Client enregistré ✓', 'success');
-  api('updateProspect', { id: pid, offre, typeAbonnement: isPayant ? typeAbonnement : '', dateAbonnement: isPayant ? dateAbonnement : '' })
+  showToast(_isUpgradeMode ? 'Abonnement mis à jour ✓' : 'Client enregistré ✓', 'success');
+
+  api('updateProspect', { id: pid, offre, typeAbonnement, dateAbonnement })
     .then(r => { if (r?.error) showToast('❌ Erreur sauvegarde : ' + r.error, 'error'); })
     .catch(() => showToast('❌ Erreur réseau', 'error'));
 }
@@ -2912,13 +2985,7 @@ function renderResumeCard(p) {
       html += `<div class="right-item"><div class="right-item-label">Type</div><div class="right-item-value">${_typeAbo === 'Annuel' ? '📆' : '📅'} ${esc(_typeAbo)}</div></div>`;
     }
     if (_dateAbo) {
-      const todayD = new Date(); todayD.setHours(0,0,0,0);
-      const aboDate = new Date(_dateAbo);
-      const nextAnni = new Date(aboDate); nextAnni.setFullYear(todayD.getFullYear());
-      if (nextAnni < todayD) nextAnni.setFullYear(todayD.getFullYear() + 1);
-      const daysUntil = Math.round((nextAnni - todayD) / 86400000);
       html += `<div class="right-item"><div class="right-item-label">Depuis</div><div class="right-item-value">${formatDate(_dateAbo)}</div></div>`;
-      html += `<div class="right-item"><div class="right-item-label">Prochain anniversaire</div><div class="right-item-value" style="color:${daysUntil <= 30 ? 'var(--orange)' : 'inherit'};">${formatDate(nextAnni.toISOString().split('T')[0])} <span style="color:var(--text-3);font-size:11px;">(${daysUntil}j)</span></div></div>`;
     }
     html += `<button onclick="openClientOffreModal('${pid}')" style="width:100%;margin-top:6px;padding:6px 10px;background:transparent;border:1.5px solid var(--border);border-radius:8px;font-size:11px;font-weight:600;color:var(--text-2);cursor:pointer;font-family:'Poppins',sans-serif;transition:all 0.15s;" onmouseover="this.style.borderColor='var(--orange)';this.style.color='var(--orange)'" onmouseout="this.style.borderColor='var(--border)';this.style.color='var(--text-2)'">✏️ Modifier l'abonnement</button>`;
   }
