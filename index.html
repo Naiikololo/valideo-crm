@@ -177,7 +177,7 @@
   .tag-remove { cursor: pointer; opacity: 0.7; } .tag-remove:hover { opacity: 1; }
   .tag-add { background: var(--bg); border: 1px dashed var(--border); border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; color: var(--text-3); transition: all 0.15s; }
   .tag-add:hover { border-color: var(--navy); color: var(--navy); }
-  .notes-perm textarea { width: 100%; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--text); font-family: 'Poppins', sans-serif; resize: vertical; outline: none; min-height: 80px; line-height: 1.6; transition: border-color 0.15s; }
+  .notes-perm textarea { width: 100%; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--text); font-family: 'Poppins', sans-serif; resize: vertical; outline: none; min-height: 160px; line-height: 1.6; transition: border-color 0.15s; }
   .notes-perm textarea:focus { border-color: var(--navy-light); background: #fff; }
   .action-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
   .btn-meet { background: var(--surface); color: var(--navy); border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Poppins', sans-serif; transition: all 0.15s; }
@@ -2715,7 +2715,100 @@ function renderResumeCard(p) {
     html += `<div class="right-item"><div class="right-item-label">📅 Prochaine relance</div><div class="right-item-value ${isLate ? 'danger' : 'orange'}">${isLate ? '⚠️ ' : ''}${formatDate(p['Date relance'])}</div></div>`;
   }
 
+  // ── Liens utiles ──────────────────────────────────────────
+  html += `<div style="border-top:1px solid var(--border);margin:12px 0 10px;"></div>`;
+  html += `<div style="font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:0.6px;margin-bottom:8px;">🔗 Liens utiles</div>`;
+
+  let liens = [];
+  try { liens = JSON.parse(p['Liens'] || '[]'); } catch(e) { liens = []; }
+
+  if (liens.length > 0) {
+    html += `<div id="liens-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:8px;">`;
+    liens.forEach((l, i) => {
+      const label = l.label || l.url;
+      html += `<div style="display:flex;align-items:center;gap:6px;">
+        <a href="${esc(l.url)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;color:var(--navy-light);text-decoration:none;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="${esc(l.url)}">
+          ${getLienIcon(l.url)} ${esc(label)}
+        </a>
+        <span onclick="removeLien(${i})" style="cursor:pointer;color:var(--text-3);font-size:14px;line-height:1;flex-shrink:0;" title="Supprimer">×</span>
+      </div>`;
+    });
+    html += `</div>`;
+  } else {
+    html += `<div style="font-size:12px;color:var(--text-3);margin-bottom:8px;">Aucun lien ajouté</div>`;
+  }
+
+  html += `<div id="lien-add-form" style="display:none;flex-direction:column;gap:6px;margin-bottom:8px;">
+    <input id="lien-url-input" type="url" placeholder="https://..." style="width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'Poppins',sans-serif;outline:none;box-sizing:border-box;">
+    <input id="lien-label-input" type="text" placeholder="Nom (optionnel)" style="width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'Poppins',sans-serif;outline:none;box-sizing:border-box;">
+    <div style="display:flex;gap:6px;">
+      <button onclick="saveLien()" style="flex:1;padding:5px 8px;background:var(--navy);color:#fff;border:none;border-radius:6px;font-size:12px;font-family:'Poppins',sans-serif;cursor:pointer;font-weight:600;">Ajouter</button>
+      <button onclick="cancelLien()" style="padding:5px 10px;background:var(--surface2);color:var(--text-2);border:1.5px solid var(--border);border-radius:6px;font-size:12px;font-family:'Poppins',sans-serif;cursor:pointer;">Annuler</button>
+    </div>
+  </div>`;
+
+  html += `<button onclick="openLienForm()" id="lien-add-btn" style="width:100%;padding:6px;background:var(--surface2);border:1.5px dashed var(--border);border-radius:6px;font-size:12px;color:var(--text-2);cursor:pointer;font-family:'Poppins',sans-serif;font-weight:600;">+ Ajouter un lien</button>`;
+
   return html;
+}
+
+function getLienIcon(url) {
+  if (!url) return '🔗';
+  if (url.includes('drive.google.com')) return '📁';
+  if (url.includes('docs.google.com')) return '📄';
+  if (url.includes('sheets.google.com')) return '📊';
+  if (url.includes('meet.google.com')) return '📹';
+  if (url.includes('linkedin.com')) return '💼';
+  return '🌐';
+}
+
+function openLienForm() {
+  const form = document.getElementById('lien-add-form');
+  const btn = document.getElementById('lien-add-btn');
+  if (form) { form.style.display = 'flex'; }
+  if (btn) { btn.style.display = 'none'; }
+  setTimeout(() => { const inp = document.getElementById('lien-url-input'); if (inp) inp.focus(); }, 50);
+}
+
+function cancelLien() {
+  const form = document.getElementById('lien-add-form');
+  const btn = document.getElementById('lien-add-btn');
+  if (form) { form.style.display = 'none'; }
+  if (btn) { btn.style.display = ''; }
+}
+
+async function saveLien() {
+  const urlEl = document.getElementById('lien-url-input');
+  const labelEl = document.getElementById('lien-label-input');
+  const url = urlEl?.value.trim();
+  if (!url) { urlEl?.focus(); return; }
+  const label = labelEl?.value.trim() || '';
+
+  let liens = [];
+  try { liens = JSON.parse(selectedProspect['Liens'] || '[]'); } catch(e) { liens = []; }
+  liens.push({ url, label });
+
+  const liensJson = JSON.stringify(liens);
+  selectedProspect['Liens'] = liensJson;
+  const idx = prospects.findIndex(pr => pr['ID'] == selectedProspect['ID']);
+  if (idx !== -1) prospects[idx]['Liens'] = liensJson;
+
+  api('updateProspect', { id: selectedProspect['ID'], liens: liensJson });
+  refreshResumeCard();
+}
+
+async function removeLien(index) {
+  let liens = [];
+  try { liens = JSON.parse(selectedProspect['Liens'] || '[]'); } catch(e) { liens = []; }
+  liens.splice(index, 1);
+
+  const liensJson = JSON.stringify(liens);
+  selectedProspect['Liens'] = liensJson;
+  const idx = prospects.findIndex(pr => pr['ID'] == selectedProspect['ID']);
+  if (idx !== -1) prospects[idx]['Liens'] = liensJson;
+
+  api('updateProspect', { id: selectedProspect['ID'], liens: liensJson });
+  refreshResumeCard();
 }
 
 function refreshResumeCard() {
