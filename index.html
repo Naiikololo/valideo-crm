@@ -1372,7 +1372,13 @@ function renderProspectsTable() {
       <div><span class="badge" style="background:${statut.Couleur}22;color:${statut.Couleur};border:1px solid ${statut.Couleur}44;"><span class="badge-dot" style="background:${statut.Couleur}"></span>${esc(statut.Nom)}</span></div>
       <div>${p['Date relance'] ? `<span class="relance-chip ${isLate ? 'late' : 'ok'}">${isLate ? '⚠️ ' : '📅 '}${formatDate(p['Date relance'])}</span>` : '<span style="color:var(--text-3);font-size:12px;">—</span>'}</div>
       <div style="font-size:12px;color:var(--text-2);">${esc(p['Secteur'] || '—')}</div>
-      <div style="font-size:12px;color:var(--text-2);">${esc(p['Offre intéressée'] || '—')}</div>
+      <div>${(() => {
+        const _ov = p['Offre intéressée'] || '';
+        if (!_ov) return '<span style="color:var(--text-3);font-size:12px;">—</span>';
+        const _om = { 'gratuit':{'c':'#94A3B8','t':'#475569'}, 'starter':{'c':'#F97316','t':'#c2410c'}, 'premium':{'c':'#8B5CF6','t':'#7c3aed'}, 'entreprise':{'c':'#10B981','t':'#065f46'} };
+        const _ok = _ov.toLowerCase(); const _ocfg = _om[_ok] || _om['gratuit'];
+        return `<span style="background:${_ocfg.c};color:#fff;border-radius:5px;padding:2px 9px;font-size:11px;font-weight:800;letter-spacing:0.2px;white-space:nowrap;">${esc(_ov)}</span>`;
+      })()}</div>
       <div style="font-size:12px;color:var(--text-2);">${esc(p['Source'] === 'Utilisateur app (CRM interne)' ? 'Application' : (p['Source'] || '—'))}</div>
       <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:flex-start;padding-top:2px;">
         ${(p['Tags'] || '').split(',').filter(Boolean).map(t => {
