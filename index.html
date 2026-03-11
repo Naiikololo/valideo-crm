@@ -618,6 +618,8 @@
         <span id="chip-relance-late" class="chip" onclick="toggleRelanceFilter('late')" style="white-space:nowrap;flex-shrink:0;">⚠️ En retard</span>
         <span id="chip-inactif" class="chip" onclick="toggleRelanceFilter('inactif')" style="white-space:nowrap;flex-shrink:0;">😴 Inactifs <span id="chip-inactif-count"></span></span>
         <div style="width:1px;height:20px;background:var(--border);flex-shrink:0;"></div>
+        <span id="chip-sort-relance" class="chip" onclick="toggleSortRelance()" style="white-space:nowrap;flex-shrink:0;">🗓 Trier par relance</span>
+        <div style="width:1px;height:20px;background:var(--border);flex-shrink:0;"></div>
         <div class="filter-select-wrap">
           <select class="filter-select" id="filter-offres" onchange="setOffreFilter(this.value)">
             <option value="">Offre</option>
@@ -1060,6 +1062,7 @@ let prospects = [], statuts = [], tags = [], parametres = {}, appelsCache = {}, 
 let selectedProspect = null;
 let currentPage = 0;
 const PAGE_SIZE = 50;
+let currentSort = 'default'; // 'default' | 'relance_asc'
 let activeStatutFilter = 'Tous', activeTagFilter = '', activeOffreFilter = '', activeRelanceFilter = '';
 let searchQuery = '';
 let pendingMotifStatus = '', pendingProspectId = '';
@@ -1249,7 +1252,7 @@ function setTagFilter(f) { activeTagFilter = f; currentPage = 0; renderFilterChi
 
 // Retourne { isLate, type, label, date, heure, evtId }
 function getLateStatus(p) {
-  if (['Client','Perdu','Mise en sommeil'].includes(p['Statut'])) return { isLate: false };
+  if (['Client','Client Geswork','Perdu','Mise en sommeil'].includes(p['Statut'])) return { isLate: false };
   const today = new Date().toISOString().split('T')[0];
   const now = new Date();
   const evts = evenementsCache[p['ID']];
@@ -1293,13 +1296,13 @@ function getFilteredProspects() {
     if (activeTagFilter && !(p['Tags'] || '').split(',').includes(activeTagFilter)) return false;
     if (activeOffreFilter && p['Offre intéressée'] !== activeOffreFilter) return false;
     const dr = (p['Date relance'] || '').substring(0,10);
-    const excluded = ['Client','Perdu','Mise en sommeil'];
+    const excluded = ['Client','Client Geswork','Perdu','Mise en sommeil'];
     if (activeRelanceFilter === 'today' && !(dr === today && !excluded.includes(p['Statut']))) return false;
     if (activeRelanceFilter === 'late' && !isRelanceLate(p)) return false;
     if (activeRelanceFilter === 'inactif') {
       const inactifJours = parseInt(parametres['inactivite_jours'] || 30);
       const limitDate = new Date(); limitDate.setDate(limitDate.getDate() - inactifJours);
-      const isInactif = !['Client','Perdu','Mise en sommeil'].includes(p['Statut']) && p['Dernière activité'] && new Date(p['Dernière activité']) < limitDate;
+      const isInactif = !['Client','Client Geswork','Perdu','Mise en sommeil'].includes(p['Statut']) && p['Dernière activité'] && new Date(p['Dernière activité']) < limitDate;
       if (!isInactif) return false;
     }
     if (searchQuery) {
@@ -1312,11 +1315,31 @@ function getFilteredProspects() {
     const aInactif = inactif.includes(a['Statut']) ? 1 : 0;
     const bInactif = inactif.includes(b['Statut']) ? 1 : 0;
     if (aInactif !== bInactif) return aInactif - bInactif;
+
+    if (currentSort === 'relance_asc') {
+      // Tri par date relance croissante — sans date en fin
+      const aD = a['Date relance'] || '';
+      const bD = b['Date relance'] || '';
+      if (aD && bD) return aD.localeCompare(bD);
+      if (aD) return -1;
+      if (bD) return 1;
+      return (b['Date création'] || '').localeCompare(a['Date création'] || '');
+    }
+
+    // Tri par défaut : Nouveau en haut, puis date création desc
     const aNouveau = a['Statut'] === 'Nouveau' ? 0 : 1;
     const bNouveau = b['Statut'] === 'Nouveau' ? 0 : 1;
     if (aNouveau !== bNouveau) return aNouveau - bNouveau;
     return (b['Date création'] || '').localeCompare(a['Date création'] || '');
   });
+}
+
+function toggleSortRelance() {
+  currentSort = currentSort === 'relance_asc' ? 'default' : 'relance_asc';
+  currentPage = 0;
+  document.getElementById('chip-sort-relance').classList.toggle('active', currentSort === 'relance_asc');
+  document.getElementById('chip-sort-relance').textContent = currentSort === 'relance_asc' ? '🗓 Relance ↑' : '🗓 Trier par relance';
+  renderProspectsTable();
 }
 
 function toggleRelanceFilter(type) {
@@ -1351,7 +1374,7 @@ function renderProspectsTable() {
   const rowsHtml = pageList.map(p => {
     const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8', Nom: p['Statut'] || '—' };
     const isLate = isRelanceLate(p);
-    const _drSoon = (p['Date relance'] || '').substring(0,10); const isSoon = !isLate && _drSoon && _drSoon <= tomorrow && _drSoon >= today && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']) && !evenementsCache[p['ID']]?.some(e => e['Type']==='relance' && ['Fait','Annulé','No show'].includes(e['Statut']));
+    const _drSoon = (p['Date relance'] || '').substring(0,10); const isSoon = !isLate && _drSoon && _drSoon <= tomorrow && _drSoon >= today && !['Client','Client Geswork','Perdu','Mise en sommeil'].includes(p['Statut']) && !evenementsCache[p['ID']]?.some(e => e['Type']==='relance' && ['Fait','Annulé','No show'].includes(e['Statut']));
     const isDrawerSelected = selectedProspect && selectedProspect['ID'] === p['ID'] && drawerOpen;
     const rowClass = isDrawerSelected ? 'drawer-open' : isLate ? 'row-late' : isSoon ? 'row-soon' : '';
     const statutColor = statut.Couleur || '#94A3B8';
@@ -1769,12 +1792,17 @@ function renderDashboard() {
   const limitDate = new Date(); limitDate.setDate(limitDate.getDate() - inactifJours);
 
   const total   = prospects.length;
-  const actifs  = prospects.filter(p => !['Client','Perdu','Mise en sommeil'].includes(p['Statut'])).length;
-  const clients = prospects.filter(p => p['Statut'] === 'Client').length;
-  const demos   = prospects.filter(p => p['Statut'] === 'Démo planifiée').length;
+  const actifs  = prospects.filter(p => !['Client','Client Geswork','Perdu','Mise en sommeil'].includes(p['Statut'])).length;
+  const clients = prospects.filter(p => ['Client', 'Client Geswork'].includes(p['Statut'])).length;
+  const in7days = new Date(Date.now() + 7 * 86400000).toISOString().split('T')[0];
+  const todayStr = new Date().toISOString().split('T')[0];
+  const relancesSoon = prospects.filter(p =>
+    !['Perdu','Mise en sommeil'].includes(p['Statut']) &&
+    p['Date relance'] >= todayStr && p['Date relance'] <= in7days
+  ).length;
   const late    = prospects.filter(p => isRelanceLate(p));
   const inactifs = prospects.filter(p =>
-    !['Client','Perdu','Mise en sommeil'].includes(p['Statut']) &&
+    !['Client','Client Geswork','Perdu','Mise en sommeil'].includes(p['Statut']) &&
     p['Dernière activité'] &&
     new Date(p['Dernière activité']) < limitDate
   ).length;
@@ -1784,7 +1812,7 @@ function renderDashboard() {
     <div class="dash-card"><div class="dash-card-accent" style="background:var(--navy)"></div><div class="dash-card-label">Prospects actifs</div><div class="dash-card-value">${actifs}</div></div>
     <div class="dash-card"><div class="dash-card-accent" style="background:var(--orange)"></div><div class="dash-card-label">Urgences</div><div class="dash-card-value" style="color:${late.length > 0 ? 'var(--danger)' : 'var(--text)'}">${late.length}</div></div>
     <div class="dash-card"><div class="dash-card-accent" style="background:var(--success)"></div><div class="dash-card-label">Clients</div><div class="dash-card-value" style="color:var(--success)">${clients}</div><div class="dash-card-sub">Taux conversion : ${taux}%</div></div>
-    <div class="dash-card"><div class="dash-card-accent" style="background:#3B82F6"></div><div class="dash-card-label">Démos à venir</div><div class="dash-card-value">${demos}</div></div>
+    <div class="dash-card"><div class="dash-card-accent" style="background:#3B82F6"></div><div class="dash-card-label">Relances 7 jours</div><div class="dash-card-value" style="color:${relancesSoon > 0 ? '#3B82F6' : 'var(--text)'}">${relancesSoon}</div></div>
     <div class="dash-card"><div class="dash-card-accent" style="background:#94A3B8"></div><div class="dash-card-label">Total CRM</div><div class="dash-card-value">${total}</div></div>
   `;
 
