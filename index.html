@@ -2415,7 +2415,9 @@ async function deleteTagOptimistic(id) {
   renderFilterChips(); renderProspectsTable();
   if (currentView === 'prospect') renderFullProspect();
   showToast('Tag supprimé ✓', 'success');
-  api('deleteTag', { id });
+  api('deleteTag', { id }).then(r => {
+    if (r?.error) showToast('❌ Erreur suppression tag : ' + r.error, 'error');
+  }).catch(() => showToast('❌ Erreur réseau — tag non supprimé côté serveur', 'error'));
 }
 // ─── UTILS ─────────────────────────────────────────────────
 function esc(s) {
