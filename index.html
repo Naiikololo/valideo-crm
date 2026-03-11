@@ -1582,9 +1582,9 @@ function renderFullProspect() {
   const _dateAbo      = p['Date abonnement'] || '';
 
   const _OFFRE_CFG = {
-    'gratuit':    { badge:'#94A3B8', bg:'rgba(148,163,184,0.1)', border:'rgba(148,163,184,0.3)', color:'#475569', label:'Gratuit',    usersDefault:1,  rapportsDefault:'5/mois',    canEditUsers:false, canEditRapports:false },
-    'starter':    { badge:'#F97316', bg:'rgba(249,115,22,0.08)', border:'rgba(249,115,22,0.25)', color:'#c2410c', label:'Starter',    usersDefault:1,  rapportsDefault:'15/mois',   canEditUsers:false, canEditRapports:false },
-    'premium':    { badge:'#8B5CF6', bg:'rgba(139,92,246,0.08)', border:'rgba(139,92,246,0.25)', color:'#7c3aed', label:'Premium',    usersDefault:1,  rapportsDefault:'Illimités', canEditUsers:false, canEditRapports:false },
+    'gratuit':    { badge:'#94A3B8', bg:'rgba(148,163,184,0.1)', border:'rgba(148,163,184,0.3)', color:'#475569', label:'Gratuit',    usersDefault:1,  rapportsDefault:'5/mois',    canEditUsers:false, canEditRapports:true },
+    'starter':    { badge:'#F97316', bg:'rgba(249,115,22,0.08)', border:'rgba(249,115,22,0.25)', color:'#c2410c', label:'Starter',    usersDefault:1,  rapportsDefault:'15/mois',   canEditUsers:false, canEditRapports:true },
+    'premium':    { badge:'#8B5CF6', bg:'rgba(139,92,246,0.08)', border:'rgba(139,92,246,0.25)', color:'#7c3aed', label:'Premium',    usersDefault:1,  rapportsDefault:'Illimités', canEditUsers:false, canEditRapports:true },
     'entreprise': { badge:'#10B981', bg:'rgba(16,185,129,0.08)', border:'rgba(16,185,129,0.25)', color:'#065f46', label:'Entreprise', usersDefault:10, rapportsDefault:'Illimités', canEditUsers:true,  canEditRapports:true  },
   };
   const _cfg = _OFFRE_CFG[_offreVal.toLowerCase()] || _OFFRE_CFG['gratuit'];
@@ -1601,7 +1601,7 @@ function renderFullProspect() {
   }
 
   // Chip offre : badge + limites + infos client si applicable
-  const _editAction = _isClient ? `openClientOffreModal('${_pid2}', true)` : `openEditOffre('${_pid2}')`;
+  const _editAction = _isClient ? `openClientOffreModal('${_pid2}', true)` : `convertToClientFromChip('${_pid2}')`;
   const _usersTag = (_cfg.canEditUsers || _isEntreprise)
     ? `<span onclick="openEditNbUsers('${_pid2}')" style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#fff;border:1px solid ${_cfg.border};border-radius:5px;font-size:11px;font-weight:600;color:${_cfg.color};cursor:pointer;">👥${_usersDisplay}<span style="font-size:9px;opacity:0.4;">✏️</span></span>`
     : `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#fff;border:1px solid ${_cfg.border};border-radius:5px;font-size:11px;font-weight:600;color:${_cfg.color};">👥${_usersDisplay}</span>`;
@@ -1615,7 +1615,7 @@ function renderFullProspect() {
       ${_typeAbo ? `<span style="font-size:10px;color:${_cfg.color};font-weight:600;white-space:nowrap;">${_typeAbo === 'Annuel' ? '📆' : '📅'} ${_typeAbo}</span>` : ''}
       ${_usersTag}
       ${_rapportsTag}
-      ${_clientDuration ? `<span style="font-size:10px;color:${_cfg.color};font-weight:600;opacity:0.7;white-space:nowrap;">${_clientDuration}</span>` : ''}
+      ${_dateAbo ? `<span style="font-size:10px;color:${_cfg.color};font-weight:600;opacity:0.65;white-space:nowrap;border-left:1px solid ${_cfg.border};padding-left:8px;">📅 ${formatDate(_dateAbo)}${_clientDuration ? ` <span style="opacity:0.7;">(${_clientDuration})</span>` : ''}</span>` : ''}
     </div>`;
 
   document.getElementById('prospect-page-content').innerHTML = loadingBarHtml + staleBannerHtml + `
@@ -2669,6 +2669,17 @@ function confirmEventDateEdit() {
 // ─── CLIENT OFFRE MODAL ────────────────────────────────────
 let _pendingClientOffreProspectId = null;
 let _isUpgradeMode = false; // true = modification d'offre existante, false = nouveau client
+
+function convertToClientFromChip(pid) {
+  const idx = prospects.findIndex(p => p['ID'] == pid);
+  if (idx !== -1) prospects[idx]['Statut'] = 'Client';
+  if (selectedProspect?.['ID'] == pid) selectedProspect['Statut'] = 'Client';
+  renderProspectsTable(); renderDashboard();
+  if (drawerOpen) renderDrawer();
+  if (currentView === 'prospect') renderFullProspect();
+  api('updateProspect', { id: pid, statut: 'Client' });
+  openClientOffreModal(pid, false);
+}
 
 function openClientOffreModal(pid, upgradeMode = false) {
   _pendingClientOffreProspectId = pid;
