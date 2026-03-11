@@ -86,10 +86,10 @@
   .chip:hover:not(.active) { border-color: var(--navy); color: var(--navy); }
   .chip-tag { border-radius: 6px; }
   .prospects-table { background: var(--surface); border-radius: 12px; border: 1px solid var(--border); overflow: hidden; }
-  .table-header { display: grid; grid-template-columns: 1.6fr 0.9fr 1fr 1.4fr 1fr 1fr 1fr 110px; gap: 0;
+  .table-header { display: grid; grid-template-columns: 1.5fr 1.2fr 0.9fr 0.85fr 0.8fr 0.75fr 0.7fr 1fr 110px; gap: 0;
     padding: 10px 16px; background: var(--bg); border-bottom: 1px solid var(--border);
     font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.6px; }
-  .table-row { display: grid; grid-template-columns: 1.6fr 0.9fr 1fr 1.4fr 1fr 1fr 1fr 110px; gap: 0;
+  .table-row { display: grid; grid-template-columns: 1.5fr 1.2fr 0.9fr 0.85fr 0.8fr 0.75fr 0.7fr 1fr 110px; gap: 0;
     padding: 12px 16px; border-bottom: 1px solid var(--border-light); align-items: center;
     cursor: pointer; transition: background 0.12s; overflow: visible; }
   .table-row:last-child { border-bottom: none; }
@@ -632,8 +632,8 @@
       </div>
       <div class="prospects-table">
         <div class="table-header">
-          <div>Prospect</div><div>Secteur</div><div>Tags</div><div>Contact</div><div>Statut</div>
-          <div>Offre</div><div>Relance</div><div></div>
+          <div>Prospect</div><div>Contact</div><div>Statut</div><div>Relance</div>
+          <div>Secteur</div><div>Offre</div><div>Source</div><div>Tags</div><div></div>
         </div>
         <div id="prospects-tbody"></div>
       </div>
@@ -810,7 +810,7 @@
     <div class="modal-field"><label class="modal-label">Source</label>
       <select class="modal-select" id="p-source">
         <option value="">-- Choisir --</option>
-        <option>Utilisateur app (CRM interne)</option>
+        <option>Application</option>
         <option>LinkedIn</option>
         <option>Bouche à oreille</option>
         <option>Site web</option>
@@ -1263,16 +1263,9 @@ function renderProspectsTable() {
     const rowClass = isDrawerSelected ? 'drawer-open' : isLate ? 'row-late' : isSoon ? 'row-soon' : '';
     return `<div class="table-row ${rowClass} ${p['Statut'] === 'Mise en sommeil' ? 'sommeil' : ''}" onclick="openDrawer('${p['ID']}')">
       <div>
+        ${p['Date création'] ? `<div style="font-size:10px;color:var(--text-3);margin-bottom:2px;">${formatDate(p['Date création'])}</div>` : ''}
         <div class="prospect-name">${esc(p['Entreprise'] || p['Nom'] || '—')}</div>
         ${p['Nom'] && p['Nom'] !== p['Entreprise'] ? `<div style="font-size:11px;color:var(--text-3);margin-top:1px;">${esc(p['Nom'])}</div>` : ''}
-      </div>
-      <div style="font-size:12px;color:var(--text-2);">${esc(p['Secteur'] || '—')}</div>
-      <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:flex-start;padding-top:2px;">
-        ${(p['Tags'] || '').split(',').filter(Boolean).map(t => {
-          const tagObj = tags.find(tg => tg['Nom'] === t.trim());
-          const col = tagObj ? tagObj['Couleur'] : '#94A3B8';
-          return `<span style="background:${col}22;color:${col};border:1px solid ${col}44;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:600;">${esc(t.trim())}</span>`;
-        }).join('') || '<span style="color:var(--text-3);font-size:12px;">—</span>'}
       </div>
       <div onclick="event.stopPropagation()">
         ${p['Téléphone'] ? `<div style="font-size:12px;font-weight:600;color:var(--text);user-select:all;cursor:text;">${formatPhone(p['Téléphone'])}</div>` : ''}
@@ -1280,8 +1273,17 @@ function renderProspectsTable() {
         ${!p['Téléphone'] && !p['Email'] ? `<span style="color:var(--text-3);">—</span>` : ''}
       </div>
       <div><span class="badge" style="background:${statut.Couleur}22;color:${statut.Couleur};border:1px solid ${statut.Couleur}44;"><span class="badge-dot" style="background:${statut.Couleur}"></span>${esc(statut.Nom)}</span></div>
-      <div style="font-size:12px;color:var(--text-2);">${esc(p['Offre intéressée'] || '—')}</div>
       <div>${p['Date relance'] ? `<span class="relance-chip ${isLate ? 'late' : 'ok'}">${isLate ? '⚠️ ' : '📅 '}${formatDate(p['Date relance'])}</span>` : '<span style="color:var(--text-3);font-size:12px;">—</span>'}</div>
+      <div style="font-size:12px;color:var(--text-2);">${esc(p['Secteur'] || '—')}</div>
+      <div style="font-size:12px;color:var(--text-2);">${esc(p['Offre intéressée'] || '—')}</div>
+      <div style="font-size:12px;color:var(--text-2);">${esc(p['Source'] === 'Utilisateur app (CRM interne)' ? 'Application' : (p['Source'] || '—'))}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:3px;align-items:flex-start;padding-top:2px;">
+        ${(p['Tags'] || '').split(',').filter(Boolean).map(t => {
+          const tagObj = tags.find(tg => tg['Nom'] === t.trim());
+          const col = tagObj ? tagObj['Couleur'] : '#94A3B8';
+          return `<span style="background:${col}22;color:${col};border:1px solid ${col}44;border-radius:5px;padding:2px 7px;font-size:10px;font-weight:600;">${esc(t.trim())}</span>`;
+        }).join('') || '<span style="color:var(--text-3);font-size:12px;">—</span>'}
+      </div>
       <div style="display:flex;gap:4px;" onclick="event.stopPropagation()">
         <button class="btn-open-drawer" onclick="openDrawer('${p['ID']}')">Résumé</button>
         <button class="btn-open-full" onclick="openFullProspectById('${p['ID']}')">→</button>
@@ -1385,11 +1387,14 @@ function renderDrawer() {
       ${appels.length > 3 ? `<div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:6px;">+${appels.length - 3} autres — voir la fiche complète</div>` : ''}
     </div>
 
-    ${p['Notes permanentes'] ? `<div class="drawer-section">
-      <div class="drawer-section-title">Notes</div>
-      <div style="font-size:12px;color:var(--text-2);line-height:1.6;">${esc(p['Notes permanentes'])}</div>
-    </div>` : ''}
+    <div class="drawer-section">
+      <div class="drawer-section-title">Notes permanentes</div>
+      <textarea id="drawer-notes-input" style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:12px;color:var(--text-2);line-height:1.6;resize:vertical;min-height:72px;font-family:inherit;outline:none;" placeholder="Notes sur ce prospect..." oninput="debounceSaveDrawerNotes()">${esc(p['Notes permanentes'] || '')}</textarea>
+    </div>
   `;
+  // Sync drawer notes textarea cursor after render
+  const _dn = document.getElementById('drawer-notes-input');
+  if (_dn) { _dn.value = p['Notes permanentes'] || ''; }
 }
 
 function toggleDrawerStatusDd() {
@@ -1719,7 +1724,7 @@ async function saveProspect() {
       if (r?.id) {
         const i = prospects.findIndex(p => p['ID'] === tempId); if (i !== -1) prospects[i]['ID'] = r.id;
         if (selectedProspect?.['ID'] === tempId) { selectedProspect['ID'] = r.id; }
-        // Now safe to update hash with real ID
+        renderProspectsTable();
         if (currentView === 'prospect') history.replaceState(null,'','#prospect-' + r.id);
       }
     });
@@ -1769,6 +1774,24 @@ function saveNotesPerm() {
   api('updateProspect', { id: selectedProspect['ID'], notesPermanentes: val }).then(r => {
     if (r?.error) showToast('Erreur sauvegarde notes : ' + r.error, 'error');
   });
+}
+
+let _drawerNotesTimer = null;
+function debounceSaveDrawerNotes() {
+  clearTimeout(_drawerNotesTimer);
+  _drawerNotesTimer = setTimeout(saveDrawerNotes, 1200);
+}
+function saveDrawerNotes() {
+  const el = document.getElementById('drawer-notes-input'); if (!el) return;
+  const val = el.value;
+  if (!selectedProspect) return;
+  selectedProspect['Notes permanentes'] = val;
+  const idx = prospects.findIndex(p => p['ID'] == selectedProspect['ID']); if (idx !== -1) prospects[idx]['Notes permanentes'] = val;
+  // Sync fiche complète if open
+  const ficheEl = document.getElementById('notes-perm-input'); if (ficheEl) ficheEl.value = val;
+  api('updateProspect', { id: selectedProspect['ID'], notesPermanentes: val }).then(r => {
+    if (r?.error) showToast('❌ Erreur sauvegarde notes : ' + r.error, 'error');
+  }).catch(() => showToast('❌ Erreur réseau — notes non sauvegardées', 'error'));
 }
 
 // ─── TAGS ──────────────────────────────────────────────────
