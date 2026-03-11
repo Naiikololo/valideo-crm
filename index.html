@@ -1401,13 +1401,20 @@ function renderDrawer() {
     </div>
 
     <div class="drawer-section">
-      <div class="drawer-section-title">Derniers appels (${appels.length})</div>
-      ${appels.length === 0 ? '<div style="font-size:12px;color:var(--text-3);">Aucun appel enregistré</div>' :
-        appels.slice(0, 3).map(a => `
-          <div class="call-log-item">
-            <div class="call-log-date">${formatDate(a['Date'])} ${formatHeure(a['Heure'])}</div>
+      <div class="drawer-section-title">Dernières actions (${appels.length})</div>
+      ${appels.length === 0 ? '<div style="font-size:12px;color:var(--text-3);">Aucune action enregistrée</div>' :
+        appels.slice(0, 3).map(a => {
+          const actionType = a['Type'] || '📞 Appel';
+          const typeColors = { '📞 Appel': 'var(--orange)', '✉️ Email': '#8B5CF6', '💬 SMS': '#0EA5E9', '📝 Autre': '#64748B' };
+          const color = typeColors[actionType] || 'var(--orange)';
+          return `<div class="call-log-item" style="border-left:2px solid ${color};padding-left:8px;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:2px;">
+              <span style="font-size:11px;font-weight:700;color:${color};">${actionType}</span>
+              <span style="font-size:11px;color:var(--text-3);">${formatDate(a['Date'])} ${formatHeure(a['Heure'])}</span>
+            </div>
             <div class="call-log-note">${esc(a['Note'] || '—')}</div>
-          </div>`).join('')}
+          </div>`;
+        }).join('')}
       ${appels.length > 3 ? `<div style="font-size:11px;color:var(--text-3);text-align:center;margin-top:6px;">+${appels.length - 3} autres — voir la fiche complète</div>` : ''}
     </div>
 
