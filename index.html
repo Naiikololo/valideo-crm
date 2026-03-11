@@ -1035,10 +1035,16 @@
     </div>
 
     <div id="client-abonnement-fields" class="hidden">
-      <!-- Nb utilisateurs — visible uniquement pour Entreprise -->
-      <div class="modal-field" id="client-nb-users-field" style="display:none;">
-        <label class="modal-label">Nombre d'utilisateurs</label>
-        <input class="modal-input" id="client-nb-users" type="number" min="1" placeholder="Ex: 10">
+      <!-- Limites personnalisées -->
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div class="modal-field" id="client-nb-users-field">
+          <label class="modal-label">Nb utilisateurs</label>
+          <input class="modal-input" id="client-nb-users" type="number" min="1" placeholder="Ex: 1">
+        </div>
+        <div class="modal-field">
+          <label class="modal-label">Nb rapports/mois</label>
+          <input class="modal-input" id="client-nb-rapports" type="number" min="1" placeholder="Illimité si vide">
+        </div>
       </div>
       <div class="modal-field">
         <label class="modal-label">Type d'abonnement</label>
@@ -1668,12 +1674,8 @@ function renderFullProspect() {
 
   // Chip offre : badge + limites + infos client si applicable
   const _editAction = _isClient ? `openClientOffreModal('${_pid2}', true)` : `convertToClientFromChip('${_pid2}')`;
-  const _usersTag = (_cfg.canEditUsers || _isEntreprise)
-    ? `<span onclick="openEditNbUsers('${_pid2}')" style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#fff;border:1px solid ${_cfg.border};border-radius:5px;font-size:11px;font-weight:600;color:${_cfg.color};cursor:pointer;">👥${_usersDisplay}<span style="font-size:9px;opacity:0.4;">✏️</span></span>`
-    : `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#fff;border:1px solid ${_cfg.border};border-radius:5px;font-size:11px;font-weight:600;color:${_cfg.color};">👥${_usersDisplay}</span>`;
-  const _rapportsTag = (_cfg.canEditRapports || _isEntreprise)
-    ? `<span onclick="openEditNbRapports('${_pid2}')" style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#fff;border:1px solid ${_cfg.border};border-radius:5px;font-size:11px;font-weight:600;color:${_cfg.color};cursor:pointer;">📄${_rapportsDisplay}<span style="font-size:9px;opacity:0.4;">✏️</span></span>`
-    : `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#fff;border:1px solid ${_cfg.border};border-radius:5px;font-size:11px;font-weight:600;color:${_cfg.color};">📄${_rapportsDisplay}</span>`;
+  const _usersTag = `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#fff;border:1px solid ${_cfg.border};border-radius:5px;font-size:11px;font-weight:600;color:${_cfg.color};">👥${_usersDisplay}</span>`;
+  const _rapportsTag = `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#fff;border:1px solid ${_cfg.border};border-radius:5px;font-size:11px;font-weight:600;color:${_cfg.color};">📄${_rapportsDisplay}</span>`;
 
   // Résiliation
   const _dateResil  = p['Date résiliation'] || '';
@@ -2831,6 +2833,8 @@ function openClientOffreModal(pid, upgradeMode = false) {
   // Nb users
   const nbUsersInput = document.getElementById('client-nb-users');
   if (nbUsersInput) nbUsersInput.value = p?.['Nb utilisateurs'] || '';
+  const nbRapportsInput = document.getElementById('client-nb-rapports');
+  if (nbRapportsInput) nbRapportsInput.value = p?.['Nb rapports'] || '';
 
   // Reset + pré-sélectionner type abonnement
   document.querySelectorAll('input[name="client-abonnement-type"]').forEach(r => {
@@ -2849,9 +2853,6 @@ function openClientOffreModal(pid, upgradeMode = false) {
 
 function selectClientOffre(offre) {
   document.getElementById('client-offre-select').value = offre;
-  // Champ utilisateurs uniquement pour Entreprise
-  const usersField = document.getElementById('client-nb-users-field');
-  if (usersField) usersField.style.display = offre === 'Entreprise' ? 'block' : 'none';
   // Styles sélecteur visuel
   document.querySelectorAll('.client-offre-btn').forEach(btn => {
     const isSelected = btn.dataset.offre === offre;
@@ -2898,7 +2899,8 @@ function confirmClientOffre() {
   const typeAbonnement = document.querySelector('input[name="client-abonnement-type"]:checked')?.value || '';
   const dateAbonnement = document.getElementById('client-date-abonnement').value || '';
   if (!typeAbonnement) { showToast('⚠️ Choisis un type d\'abonnement (Mensuel ou Annuel)', 'error'); return; }
-  const nbUsersVal = offre === 'Entreprise' ? (document.getElementById('client-nb-users')?.value || '') : '';
+  const nbUsersVal    = document.getElementById('client-nb-users')?.value || '';
+  const nbRapportsVal = document.getElementById('client-nb-rapports')?.value || '';
 
   closeModal('modal-client-offre');
 
@@ -2907,13 +2909,15 @@ function confirmClientOffre() {
     prospects[idx]['Offre intéressée'] = offre;
     prospects[idx]['Type abonnement']  = typeAbonnement;
     prospects[idx]['Date abonnement']  = dateAbonnement;
-    if (nbUsersVal) prospects[idx]['Nb utilisateurs'] = nbUsersVal;
+    if (nbUsersVal)    prospects[idx]['Nb utilisateurs'] = nbUsersVal;
+    if (nbRapportsVal) prospects[idx]['Nb rapports']     = nbRapportsVal;
   }
   if (selectedProspect?.['ID'] == pid) {
     selectedProspect['Offre intéressée'] = offre;
     selectedProspect['Type abonnement']  = typeAbonnement;
     selectedProspect['Date abonnement']  = dateAbonnement;
-    if (nbUsersVal) selectedProspect['Nb utilisateurs'] = nbUsersVal;
+    if (nbUsersVal)    selectedProspect['Nb utilisateurs'] = nbUsersVal;
+    if (nbRapportsVal) selectedProspect['Nb rapports']     = nbRapportsVal;
   }
 
   renderProspectsTable(); renderDashboard();
@@ -2921,7 +2925,9 @@ function confirmClientOffre() {
   if (currentView === 'prospect') renderFullProspect();
   showToast(_isUpgradeMode ? 'Abonnement mis à jour ✓' : 'Client enregistré ✓', 'success');
 
-  api('updateProspect', { id: pid, offre, typeAbonnement, dateAbonnement, ...(nbUsersVal ? { nbUtilisateurs: nbUsersVal } : {}) })
+  api('updateProspect', { id: pid, offre, typeAbonnement, dateAbonnement,
+    ...(nbUsersVal    ? { nbUtilisateurs: nbUsersVal }    : {}),
+    ...(nbRapportsVal ? { nbRapports: nbRapportsVal }     : {}) })
     .then(r => { if (r?.error) showToast('❌ Erreur sauvegarde : ' + r.error, 'error'); })
     .catch(() => showToast('❌ Erreur réseau', 'error'));
 }
