@@ -604,7 +604,7 @@
       <div class="dash-grid" id="dash-grid"></div>
 
       <div class="section-header">
-        <div class="section-title">⚠️ Relances en retard <span class="section-count hidden" id="late-count">0</span></div>
+        <div class="section-title">🚨 Urgences <span class="section-count hidden" id="late-count">0</span></div>
       </div>
       <div class="relances-list" id="relances-list"><div class="empty-state">✅ Aucune relance en retard</div></div>
 
@@ -1117,10 +1117,17 @@ async function loadProspects() {
 }
 
 function preloadRecentProspects() {
-  // Sort by most recent activity, preload top 8 not yet cached
+  const today = new Date().toISOString().split('T')[0];
+  // Priorité 1 : prospects avec relance en retard (Date relance <= aujourd'hui)
+  // Priorité 2 : prospects récemment actifs
   const toLoad = [...prospects]
     .filter(p => !appelsCache[p['ID']] || !evenementsCache[p['ID']])
-    .sort((a, b) => (b['Dernière activité'] || '').localeCompare(a['Dernière activité'] || ''))
+    .sort((a, b) => {
+      const aLate = (a['Date relance'] || '').substring(0,10) <= today && a['Date relance'] ? 1 : 0;
+      const bLate = (b['Date relance'] || '').substring(0,10) <= today && b['Date relance'] ? 1 : 0;
+      if (bLate !== aLate) return bLate - aLate;
+      return (b['Dernière activité'] || '').localeCompare(a['Dernière activité'] || '');
+    })
     .slice(0, 3);
   if (!toLoad.length) return;
   let i = 0;
@@ -1132,14 +1139,12 @@ function preloadRecentProspects() {
       appelsCache[pid] ? Promise.resolve() : loadAppels(pid),
       evenementsCache[pid] ? Promise.resolve() : loadEvenements(pid)
     ]).then(() => {
-      // If this prospect is currently open, refresh silently
-      if (selectedProspect?.['ID'] == pid && currentView === 'prospect') {
-        renderFullProspect();
-      }
+      renderDashboard();
+      if (selectedProspect?.['ID'] == pid && currentView === 'prospect') renderFullProspect();
     });
-    setTimeout(loadNext, 1500); // throttle: 1 per 1500ms
+    setTimeout(loadNext, 1500);
   }
-  setTimeout(loadNext, 3000); // start 3s after page ready
+  setTimeout(loadNext, 3000);
 }
 async function loadStatuts() { const d = await api('getStatuts'); statuts = Array.isArray(d) ? d : []; }
 async function loadTags() { const d = await api('getTags'); tags = Array.isArray(d) ? d : []; }
@@ -1210,29 +1215,35 @@ function setTagFilter(f) { activeTagFilter = f; currentPage = 0; renderFilterChi
 // Retourne le statut de retard : { isLate, type ('relance'|'meet'|null), label, date, heure, evtId }
 function getLateStatus(p) {
   if (['Client','Perdu','Mise en sommeil'].includes(p['Statut'])) return { isLate: false };
-  const evts = evenementsCache[p['ID']] || [];
   const today = new Date().toISOString().split('T')[0];
   const now = new Date();
+  const evts = evenementsCache[p['ID']];
+  const cacheLoaded = !!evts;
 
-  // ── Vérifie la relance — UNIQUEMENT si un event de type 'relance' Planifié existe ──
-  const relanceEvtPlanifie = evts.find(e => e['Type'] === 'relance' && e['Statut'] === 'Planifié');
-  if (relanceEvtPlanifie) {
-    const dr = relanceEvtPlanifie['Date'];
+  // ── Si cache non chargé : fallback sur Date relance du prospect ──
+  if (!cacheLoaded) {
+    const dr = (p['Date relance'] || '').substring(0, 10);
+    if (dr && dr <= today) return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure: '', evtId: null };
+    return { isLate: false };
+  }
+
+  // ── Cache chargé : logique précise ──
+
+  // Vérifie relance
+  const relanceEvt = evts.find(e => e['Type'] === 'relance' && e['Statut'] === 'Planifié');
+  if (relanceEvt) {
+    const dr = relanceEvt['Date'];
     if (dr && dr <= today) {
-      if (dr < today) return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure: relanceEvtPlanifie['Heure'] || '', evtId: relanceEvtPlanifie['ID'] };
-      // dr === today → vérifier l'heure
-      const heure = relanceEvtPlanifie['Heure'] || '';
-      if (heure) {
-        const [h, m] = heure.split(':').map(Number);
-        const evtTime = new Date(); evtTime.setHours(h, m, 0, 0);
-        if (now >= evtTime) return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure, evtId: relanceEvtPlanifie['ID'] };
-      } else {
-        return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure: '', evtId: relanceEvtPlanifie['ID'] };
-      }
+      if (dr < today) return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure: relanceEvt['Heure'] || '', evtId: relanceEvt['ID'] };
+      const heure = relanceEvt['Heure'] || '';
+      if (!heure) return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure: '', evtId: relanceEvt['ID'] };
+      const [h, m] = heure.split(':').map(Number);
+      const evtTime = new Date(); evtTime.setHours(h, m, 0, 0);
+      if (now >= evtTime) return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure, evtId: relanceEvt['ID'] };
     }
   }
 
-  // ── Vérifie les démos (meet) ──
+  // Vérifie meet (démo)
   const lateMeet = evts.find(e => {
     if (e['Type'] !== 'meet' || e['Statut'] !== 'Planifié') return false;
     const d = e['Date'];
@@ -1250,7 +1261,6 @@ function getLateStatus(p) {
   return { isLate: false, type: null };
 }
 
-// Rétrocompat
 function isRelanceLate(p) { return getLateStatus(p).isLate; }
 
 function getFilteredProspects() {
@@ -1704,7 +1714,7 @@ function renderDashboard() {
 
   document.getElementById('dash-grid').innerHTML = `
     <div class="dash-card"><div class="dash-card-accent" style="background:var(--navy)"></div><div class="dash-card-label">Prospects actifs</div><div class="dash-card-value">${actifs}</div></div>
-    <div class="dash-card"><div class="dash-card-accent" style="background:var(--orange)"></div><div class="dash-card-label">Actions en retard</div><div class="dash-card-value" style="color:${late.length > 0 ? 'var(--danger)' : 'var(--text)'}">${late.length}</div></div>
+    <div class="dash-card"><div class="dash-card-accent" style="background:var(--orange)"></div><div class="dash-card-label">Urgences</div><div class="dash-card-value" style="color:${late.length > 0 ? 'var(--danger)' : 'var(--text)'}">${late.length}</div></div>
     <div class="dash-card"><div class="dash-card-accent" style="background:var(--success)"></div><div class="dash-card-label">Clients</div><div class="dash-card-value" style="color:var(--success)">${clients}</div><div class="dash-card-sub">Taux conversion : ${taux}%</div></div>
     <div class="dash-card"><div class="dash-card-accent" style="background:#3B82F6"></div><div class="dash-card-label">Démos à venir</div><div class="dash-card-value">${demos}</div></div>
     <div class="dash-card"><div class="dash-card-accent" style="background:var(--text-3)"></div><div class="dash-card-label">Inactifs +${inactifJours}j</div><div class="dash-card-value" style="color:var(--text-3)">${inactifs}</div></div>
@@ -1716,7 +1726,7 @@ function renderDashboard() {
   if (headerBadge) { if (late.length > 0) { headerBadge.textContent = late.length; headerBadge.classList.remove('hidden'); } else { headerBadge.classList.add('hidden'); } }
 
   const relEl = document.getElementById('relances-list');
-  relEl.innerHTML = late.length === 0 ? '<div class="empty-state">✅ Aucune action en retard</div>' :
+  relEl.innerHTML = late.length === 0 ? '<div class="empty-state">✅ Aucune urgence en cours</div>' :
     late.map(p => {
       const ls = getLateStatus(p);
       const typeIcon = ls.type === 'meet' ? '🎥' : '📞';
@@ -3060,15 +3070,13 @@ function openLateEventNote(evtId) {
   const pid = p['ID'];
   const evts = evenementsCache[pid];
   if (!evts) { showToast('Chargement en cours, réessaie dans un instant…', ''); return; }
-  // Si on a un evtId direct, l'utiliser
   let evt = evtId ? evts.find(e => e['ID'] == evtId) : null;
-  // Sinon fallback : chercher le premier event en retard (relance puis meet)
   if (!evt) evt = evts.find(e => e['Type'] === 'relance' && e['Statut'] === 'Planifié');
   if (!evt) evt = evts.find(e => e['Type'] === 'meet' && e['Statut'] === 'Planifié');
   if (!evt) { showToast('Événement introuvable', 'error'); return; }
   openEventNote(evt['ID'], pid);
 }
-function openLateRelanceNote() { openLateEventNote(''); } // rétrocompat
+function openLateRelanceNote() { openLateEventNote(''); }
 
 function clearRelanceIfDone(pid, type, statut) {
   if (type !== 'relance') return;
