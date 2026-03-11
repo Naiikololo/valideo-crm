@@ -1786,7 +1786,10 @@ function toggleTag(tagName) {
   pt = pt.includes(tagName) ? pt.filter(t => t !== tagName) : [...pt, tagName];
   const tagsStr = pt.join(','); selectedProspect['Tags'] = tagsStr;
   const idx = prospects.findIndex(p => p['ID'] == selectedProspect['ID']); if (idx !== -1) prospects[idx]['Tags'] = tagsStr;
-  closeModal('modal-tag-select'); if (currentView === 'prospect') renderFullProspect();
+  closeModal('modal-tag-select');
+  renderProspectsTable(); renderDashboard();
+  if (drawerOpen) renderDrawer();
+  if (currentView === 'prospect') renderFullProspect();
   api('updateProspect', { id: selectedProspect['ID'], tags: tagsStr }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde tag : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — tag non sauvegardé', 'error'));
 }
 
@@ -1795,6 +1798,8 @@ function removeTag(tagName) {
   pt = pt.filter(t => t !== tagName); const tagsStr = pt.join(',');
   selectedProspect['Tags'] = tagsStr;
   const idx = prospects.findIndex(p => p['ID'] == selectedProspect['ID']); if (idx !== -1) prospects[idx]['Tags'] = tagsStr;
+  renderProspectsTable(); renderDashboard();
+  if (drawerOpen) renderDrawer();
   if (currentView === 'prospect') renderFullProspect();
   api('updateProspect', { id: selectedProspect['ID'], tags: tagsStr }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde tag : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — tag non sauvegardé', 'error'));
 }
