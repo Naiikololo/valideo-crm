@@ -1204,6 +1204,21 @@ function renderOffreChips() {
 function setTagFilter(f) { activeTagFilter = f; currentPage = 0; renderFilterChips(); renderProspectsTable(); }
 
 // ─── PROSPECTS TABLE ───────────────────────────────────────
+
+// Retourne true si la relance est en retard ET non traitée (pas Fait/Annulé/No show)
+function isRelanceLate(p) {
+  const today = new Date().toISOString().split('T')[0];
+  const dr = (p['Date relance'] || '').substring(0,10);
+  if (!dr || dr >= today) return false;
+  if (['Client','Perdu','Mise en sommeil'].includes(p['Statut'])) return false;
+  const evts = evenementsCache[p['ID']];
+  if (evts) {
+    const relanceFaite = evts.some(e => e['Type'] === 'relance' && ['Fait','Annulé','No show'].includes(e['Statut']));
+    if (relanceFaite) return false;
+  }
+  return true;
+}
+
 function getFilteredProspects() {
   const today = new Date().toISOString().split('T')[0];
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
@@ -1214,15 +1229,15 @@ function getFilteredProspects() {
     const dr = (p['Date relance'] || '').substring(0,10);
     const excluded = ['Client','Perdu','Mise en sommeil'];
     if (activeRelanceFilter === 'today' && !(dr === today && !excluded.includes(p['Statut']))) return false;
-    if (activeRelanceFilter === 'late' && !(dr && dr < today && !excluded.includes(p['Statut']))) return false;
+    if (activeRelanceFilter === 'late' && !isRelanceLate(p)) return false;
     if (searchQuery) {
       return ['Nom','Entreprise','Secteur','Téléphone','Email','Source'].some(k =>
         String(p[k] || '').toLowerCase().includes(searchQuery));
     }
     return true;
   }).sort((a, b) => {
-    const aLate = a['Date relance'] && a['Date relance'] < today && !['Client','Perdu','Mise en sommeil'].includes(a['Statut']);
-    const bLate = b['Date relance'] && b['Date relance'] < today && !['Client','Perdu','Mise en sommeil'].includes(b['Statut']);
+    const aLate = isRelanceLate(a);
+    const bLate = isRelanceLate(b);
     return (bLate ? 1 : 0) - (aLate ? 1 : 0);
   });
 }
@@ -1257,8 +1272,8 @@ function renderProspectsTable() {
 
   const rowsHtml = pageList.map(p => {
     const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8', Nom: p['Statut'] || '—' };
-    const isLate = p['Date relance'] && (p['Date relance'] || '').substring(0,10) < today && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']);
-    const isSoon = !isLate && p['Date relance'] && (p['Date relance'] || '').substring(0,10) <= tomorrow && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']);
+    const isLate = isRelanceLate(p);
+    const isSoon = !isLate && p['Date relance'] && (p['Date relance'] || '').substring(0,10) <= tomorrow && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']) && !evenementsCache[p['ID']]?.some(e => e['Type']==='relance' && ['Fait','Annulé','No show'].includes(e['Statut']));
     const isDrawerSelected = selectedProspect && selectedProspect['ID'] === p['ID'] && drawerOpen;
     const rowClass = isDrawerSelected ? 'drawer-open' : isLate ? 'row-late' : isSoon ? 'row-soon' : '';
     const statutColor = statut.Couleur || '#94A3B8';
@@ -1343,7 +1358,7 @@ function renderDrawer() {
   const today = new Date().toISOString().split('T')[0];
   const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8' };
   const appels = appelsCache[p['ID']] || [];
-  const isLate = p['Date relance'] && (p['Date relance'] || '').substring(0,10) < today;
+  const isLate = isRelanceLate(p);
 
   document.getElementById('drawer-name').textContent = p['Nom'] || '—';
   document.getElementById('drawer-company').textContent = [p['Entreprise'], p['Secteur']].filter(Boolean).join(' · ');
@@ -1452,7 +1467,7 @@ function renderFullProspect() {
   const appels = appelsCache[p['ID']] || [];
   const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8' };
   const today = new Date().toISOString().split('T')[0];
-  const isLate = p['Date relance'] && (p['Date relance'] || '').substring(0,10) < today;
+  const isLate = isRelanceLate(p);
   const prospectTags = p['Tags'] ? p['Tags'].split(',').filter(Boolean) : [];
 
   // Show/hide loading bar based on whether data is loaded
@@ -1622,7 +1637,7 @@ function renderDashboard() {
   const actifs = prospects.filter(p => !['Client','Perdu','Mise en sommeil'].includes(p['Statut'])).length;
   const clients = prospects.filter(p => p['Statut'] === 'Client').length;
   const demos = prospects.filter(p => p['Statut'] === 'Démo planifiée').length;
-  const late = prospects.filter(p => { const dr = (p['Date relance'] || '').substring(0, 10); return dr && dr < today && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']); });
+  const late = prospects.filter(p => isRelanceLate(p));
   const inactifs = prospects.filter(p => !['Client','Perdu','Mise en sommeil'].includes(p['Statut']) && p['Dernière activité'] && new Date(p['Dernière activité']) < limitDate).length;
   const total = prospects.filter(p => p['Statut'] !== 'Mise en sommeil').length;
   const taux = total > 0 ? Math.round((clients / total) * 100) : 0;
@@ -2656,7 +2671,7 @@ function renderResumeCard(p) {
   const appels = appelsCache[p['ID']] || [];
   const evts = evenementsCache[p['ID']] || [];
   const today = new Date().toISOString().split('T')[0];
-  const isLate = p['Date relance'] && (p['Date relance'] || '').substring(0,10) < today;
+  const isLate = isRelanceLate(p);
   const meetsFaits = evts.filter(e => e['Type'] === 'meet' && e['Statut'] === 'Fait').length;
   const meetsNoShow = evts.filter(e => e['Type'] === 'meet' && e['Statut'] === 'No show').length;
   const nextEvt = evts.filter(e => e['Statut'] === 'Planifié').sort((a,b) => a['Date'].localeCompare(b['Date']))[0];
