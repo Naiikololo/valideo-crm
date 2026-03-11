@@ -1673,7 +1673,7 @@ function renderDashboard() {
   const relEl = document.getElementById('relances-list');
   relEl.innerHTML = late.length === 0 ? '<div class="empty-state">✅ Aucune relance en retard</div>' :
     late.map(p => `<div class="relance-row" onclick="openDrawer('${p['ID']}')">
-      <div><div class="relance-info">${esc(p['Nom'] || p['Entreprise'] || '—')}</div><div class="relance-company">${p['Entreprise'] || ''}</div></div>
+      <div><div class="relance-info">${esc(p['Entreprise'] || p['Nom'] || '—')}</div><div class="relance-company">${p['Nom'] && p['Nom'] !== p['Entreprise'] ? p['Nom'] : ''}</div></div>
       <div style="display:flex;align-items:center;gap:10px;">
         <span class="relance-date">📅 ${formatDate(p['Date relance'])}</span>
         <button class="btn-open-full" onclick="event.stopPropagation();openFullProspectById('${p['ID']}')">→</button>
