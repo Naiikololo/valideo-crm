@@ -604,7 +604,7 @@
       <div class="dash-grid" id="dash-grid"></div>
 
       <div class="section-header">
-        <div class="section-title">🚨 Urgences <span class="section-count hidden" id="late-count">0</span></div>
+        <div class="section-title">⚠️ Relances en retard <span class="section-count hidden" id="late-count">0</span></div>
       </div>
       <div class="relances-list" id="relances-list"><div class="empty-state">✅ Aucune relance en retard</div></div>
 
@@ -1117,17 +1117,10 @@ async function loadProspects() {
 }
 
 function preloadRecentProspects() {
-  const today = new Date().toISOString().split('T')[0];
-  // Priorité 1 : prospects avec relance en retard (Date relance <= aujourd'hui)
-  // Priorité 2 : prospects récemment actifs
+  // Sort by most recent activity, preload top 8 not yet cached
   const toLoad = [...prospects]
     .filter(p => !appelsCache[p['ID']] || !evenementsCache[p['ID']])
-    .sort((a, b) => {
-      const aLate = (a['Date relance'] || '').substring(0,10) <= today && a['Date relance'] ? 1 : 0;
-      const bLate = (b['Date relance'] || '').substring(0,10) <= today && b['Date relance'] ? 1 : 0;
-      if (bLate !== aLate) return bLate - aLate;
-      return (b['Dernière activité'] || '').localeCompare(a['Dernière activité'] || '');
-    })
+    .sort((a, b) => (b['Dernière activité'] || '').localeCompare(a['Dernière activité'] || ''))
     .slice(0, 3);
   if (!toLoad.length) return;
   let i = 0;
@@ -1139,12 +1132,14 @@ function preloadRecentProspects() {
       appelsCache[pid] ? Promise.resolve() : loadAppels(pid),
       evenementsCache[pid] ? Promise.resolve() : loadEvenements(pid)
     ]).then(() => {
-      renderDashboard();
-      if (selectedProspect?.['ID'] == pid && currentView === 'prospect') renderFullProspect();
+      // If this prospect is currently open, refresh silently
+      if (selectedProspect?.['ID'] == pid && currentView === 'prospect') {
+        renderFullProspect();
+      }
     });
-    setTimeout(loadNext, 1500);
+    setTimeout(loadNext, 1500); // throttle: 1 per 1500ms
   }
-  setTimeout(loadNext, 3000);
+  setTimeout(loadNext, 3000); // start 3s after page ready
 }
 async function loadStatuts() { const d = await api('getStatuts'); statuts = Array.isArray(d) ? d : []; }
 async function loadTags() { const d = await api('getTags'); tags = Array.isArray(d) ? d : []; }
@@ -1212,56 +1207,22 @@ function setTagFilter(f) { activeTagFilter = f; currentPage = 0; renderFilterChi
 
 // ─── PROSPECTS TABLE ───────────────────────────────────────
 
-// Retourne le statut de retard : { isLate, type ('relance'|'meet'|null), label, date, heure, evtId }
-function getLateStatus(p) {
-  if (['Client','Perdu','Mise en sommeil'].includes(p['Statut'])) return { isLate: false };
+// Retourne true si la relance est en retard ET non traitée (pas Fait/Annulé/No show)
+function isRelanceLate(p) {
+  const dr = (p['Date relance'] || '').substring(0,10);
+  if (!dr) return false;
+  if (['Client','Perdu','Mise en sommeil'].includes(p['Statut'])) return false;
+  // Comparer date relance avec aujourd'hui (date seule, pas heure)
   const today = new Date().toISOString().split('T')[0];
-  const now = new Date();
+  if (dr > today) return false;
+  // Si un événement relance existe avec statut traité → pas en retard
   const evts = evenementsCache[p['ID']];
-  const cacheLoaded = !!evts;
-
-  // ── Si cache non chargé : fallback sur Date relance du prospect ──
-  if (!cacheLoaded) {
-    const dr = (p['Date relance'] || '').substring(0, 10);
-    if (dr && dr <= today) return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure: '', evtId: null };
-    return { isLate: false };
+  if (evts && evts.length) {
+    const relanceFaite = evts.some(e => e['Type'] === 'relance' && ['Fait','Annulé','No show'].includes(e['Statut']));
+    if (relanceFaite) return false;
   }
-
-  // ── Cache chargé : logique précise ──
-
-  // Vérifie relance
-  const relanceEvt = evts.find(e => e['Type'] === 'relance' && e['Statut'] === 'Planifié');
-  if (relanceEvt) {
-    const dr = relanceEvt['Date'];
-    if (dr && dr <= today) {
-      if (dr < today) return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure: relanceEvt['Heure'] || '', evtId: relanceEvt['ID'] };
-      const heure = relanceEvt['Heure'] || '';
-      if (!heure) return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure: '', evtId: relanceEvt['ID'] };
-      const [h, m] = heure.split(':').map(Number);
-      const evtTime = new Date(); evtTime.setHours(h, m, 0, 0);
-      if (now >= evtTime) return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure, evtId: relanceEvt['ID'] };
-    }
-  }
-
-  // Vérifie meet (démo)
-  const lateMeet = evts.find(e => {
-    if (e['Type'] !== 'meet' || e['Statut'] !== 'Planifié') return false;
-    const d = e['Date'];
-    if (!d || d > today) return false;
-    if (d < today) return true;
-    if (e['Heure']) {
-      const [h, m] = e['Heure'].split(':').map(Number);
-      const evtTime = new Date(); evtTime.setHours(h, m, 0, 0);
-      return now >= evtTime;
-    }
-    return true;
-  });
-  if (lateMeet) return { isLate: true, type: 'meet', label: 'Démo en retard', date: lateMeet['Date'], heure: lateMeet['Heure'] || '', evtId: lateMeet['ID'] };
-
-  return { isLate: false, type: null };
+  return true;
 }
-
-function isRelanceLate(p) { return getLateStatus(p).isLate; }
 
 function getFilteredProspects() {
   const today = new Date().toISOString().split('T')[0];
@@ -1280,9 +1241,16 @@ function getFilteredProspects() {
     }
     return true;
   }).sort((a, b) => {
-    const aLate = isRelanceLate(a);
-    const bLate = isRelanceLate(b);
-    return (bLate ? 1 : 0) - (aLate ? 1 : 0);
+    const inactif = ['Mise en sommeil', 'Perdu'];
+    const aInactif = inactif.includes(a['Statut']) ? 1 : 0;
+    const bInactif = inactif.includes(b['Statut']) ? 1 : 0;
+    if (aInactif !== bInactif) return aInactif - bInactif;
+    // Dans les actifs : Nouveau en premier
+    const aNouveau = a['Statut'] === 'Nouveau' ? 0 : 1;
+    const bNouveau = b['Statut'] === 'Nouveau' ? 0 : 1;
+    if (aNouveau !== bNouveau) return aNouveau - bNouveau;
+    // Ensuite par date de création décroissante
+    return (b['Date création'] || '').localeCompare(a['Date création'] || '');
   });
 }
 
@@ -1518,8 +1486,7 @@ function renderFullProspect() {
   const appels = appelsCache[p['ID']] || [];
   const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8' };
   const today = new Date().toISOString().split('T')[0];
-  const lateStatus = getLateStatus(p);
-  const isLate = lateStatus.isLate;
+  const isLate = isRelanceLate(p);
   const prospectTags = p['Tags'] ? p['Tags'].split(',').filter(Boolean) : [];
 
   // Show/hide loading bar based on whether data is loaded
@@ -1584,11 +1551,11 @@ function renderFullProspect() {
     ${isLate ? `<div style="background:#FEF2F2;border-bottom:3px solid #EF4444;padding:12px 32px;display:flex;align-items:center;gap:10px;">
       <span style="font-size:18px;">⚠️</span>
       <div>
-        <span style="font-weight:700;color:#DC2626;font-size:13px;">${lateStatus.label}</span>
-        <span style="color:#EF4444;font-size:12px;margin-left:8px;">Prévue le ${formatDate(lateStatus.date)}${lateStatus.heure ? ' à ' + lateStatus.heure : ''} — à traiter ou reprogrammer</span>
+        <span style="font-weight:700;color:#DC2626;font-size:13px;">Relance en retard</span>
+        <span style="color:#EF4444;font-size:12px;margin-left:8px;">Prévue le ${formatDate(p['Date relance'])} — à traiter ou reprogrammer</span>
       </div>
       <div style="margin-left:auto;display:flex;gap:8px;">
-        <button onclick="openLateEventNote('${lateStatus.evtId || ''}')" style="background:#fff;color:#DC2626;border:2px solid #EF4444;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">✏️ Changer le statut</button>
+        <button onclick="openLateRelanceNote()" style="background:#fff;color:#DC2626;border:2px solid #EF4444;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">✏️ Changer le statut</button>
         <button onclick="openRelanceModal()" style="background:#EF4444;color:#fff;border:none;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">📅 Reprogrammer</button>
       </div>
     </div>` : ''}
@@ -1714,7 +1681,7 @@ function renderDashboard() {
 
   document.getElementById('dash-grid').innerHTML = `
     <div class="dash-card"><div class="dash-card-accent" style="background:var(--navy)"></div><div class="dash-card-label">Prospects actifs</div><div class="dash-card-value">${actifs}</div></div>
-    <div class="dash-card"><div class="dash-card-accent" style="background:var(--orange)"></div><div class="dash-card-label">Urgences</div><div class="dash-card-value" style="color:${late.length > 0 ? 'var(--danger)' : 'var(--text)'}">${late.length}</div></div>
+    <div class="dash-card"><div class="dash-card-accent" style="background:var(--orange)"></div><div class="dash-card-label">Relances en retard</div><div class="dash-card-value" style="color:${late.length > 0 ? 'var(--danger)' : 'var(--text)'}">${late.length}</div></div>
     <div class="dash-card"><div class="dash-card-accent" style="background:var(--success)"></div><div class="dash-card-label">Clients</div><div class="dash-card-value" style="color:var(--success)">${clients}</div><div class="dash-card-sub">Taux conversion : ${taux}%</div></div>
     <div class="dash-card"><div class="dash-card-accent" style="background:#3B82F6"></div><div class="dash-card-label">Démos à venir</div><div class="dash-card-value">${demos}</div></div>
     <div class="dash-card"><div class="dash-card-accent" style="background:var(--text-3)"></div><div class="dash-card-label">Inactifs +${inactifJours}j</div><div class="dash-card-value" style="color:var(--text-3)">${inactifs}</div></div>
@@ -1726,20 +1693,14 @@ function renderDashboard() {
   if (headerBadge) { if (late.length > 0) { headerBadge.textContent = late.length; headerBadge.classList.remove('hidden'); } else { headerBadge.classList.add('hidden'); } }
 
   const relEl = document.getElementById('relances-list');
-  relEl.innerHTML = late.length === 0 ? '<div class="empty-state">✅ Aucune urgence en cours</div>' :
-    late.map(p => {
-      const ls = getLateStatus(p);
-      const typeIcon = ls.type === 'meet' ? '🎥' : '📞';
-      const typeLabel = ls.type === 'meet' ? 'Démo' : 'Relance';
-      return `<div class="relance-row" onclick="openDrawer('${p['ID']}')">
+  relEl.innerHTML = late.length === 0 ? '<div class="empty-state">✅ Aucune relance en retard</div>' :
+    late.map(p => `<div class="relance-row" onclick="openDrawer('${p['ID']}')">
       <div><div class="relance-info">${esc(p['Entreprise'] || p['Nom'] || '—')}</div><div class="relance-company">${p['Nom'] && p['Nom'] !== p['Entreprise'] ? p['Nom'] : ''}</div></div>
       <div style="display:flex;align-items:center;gap:10px;">
-        <span style="font-size:11px;font-weight:600;color:#6B7280;background:#F3F4F6;padding:2px 7px;border-radius:4px;">${typeIcon} ${typeLabel}</span>
-        <span class="relance-date">📅 ${formatDate(ls.date)}${ls.heure ? ' ' + ls.heure : ''}</span>
+        <span class="relance-date">📅 ${formatDate(p['Date relance'])}</span>
         <button class="btn-open-full" onclick="event.stopPropagation();openFullProspectById('${p['ID']}')">→</button>
       </div>
-    </div>`;
-    }).join('');
+    </div>`).join('');
 }
 
 
@@ -3065,18 +3026,15 @@ function updateEvenementStatut(id, statut) {
   api('updateEvenement', { id, statut }).then(r => { if (r?.error) showToast('❌ Erreur sauvegarde : ' + r.error, 'error'); }).catch(() => showToast('❌ Erreur réseau — statut non sauvegardé', 'error'));
 }
 
-function openLateEventNote(evtId) {
+function openLateRelanceNote() {
   const p = selectedProspect; if (!p) return;
   const pid = p['ID'];
   const evts = evenementsCache[pid];
   if (!evts) { showToast('Chargement en cours, réessaie dans un instant…', ''); return; }
-  let evt = evtId ? evts.find(e => e['ID'] == evtId) : null;
-  if (!evt) evt = evts.find(e => e['Type'] === 'relance' && e['Statut'] === 'Planifié');
-  if (!evt) evt = evts.find(e => e['Type'] === 'meet' && e['Statut'] === 'Planifié');
-  if (!evt) { showToast('Événement introuvable', 'error'); return; }
+  const evt = evts.find(e => e['Type'] === 'relance');
+  if (!evt) { showToast('Événement relance introuvable', 'error'); return; }
   openEventNote(evt['ID'], pid);
 }
-function openLateRelanceNote() { openLateEventNote(''); }
 
 function clearRelanceIfDone(pid, type, statut) {
   if (type !== 'relance') return;
