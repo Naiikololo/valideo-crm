@@ -1207,21 +1207,53 @@ function setTagFilter(f) { activeTagFilter = f; currentPage = 0; renderFilterChi
 
 // ─── PROSPECTS TABLE ───────────────────────────────────────
 
-// Retourne true si la relance est en retard ET non traitée (pas Fait/Annulé/No show)
-function isRelanceLate(p) {
-  const dr = (p['Date relance'] || '').substring(0,10);
-  if (!dr) return false;
-  if (['Client','Perdu','Mise en sommeil'].includes(p['Statut'])) return false;
-  // Comparer date relance avec aujourd'hui (date seule, pas heure)
+// Retourne le statut de retard d'un prospect : { isLate, type ('relance'|'meet'|null), label, date, heure }
+function getLateStatus(p) {
+  if (['Client','Perdu','Mise en sommeil'].includes(p['Statut'])) return { isLate: false };
+  const evts = evenementsCache[p['ID']] || [];
   const today = new Date().toISOString().split('T')[0];
-  if (dr > today) return false;
-  // Si un événement relance existe avec statut traité → pas en retard
-  const evts = evenementsCache[p['ID']];
-  if (evts && evts.length) {
+  const now = new Date();
+
+  // ── Vérifie la relance ──
+  const dr = (p['Date relance'] || '').substring(0,10);
+  if (dr && dr <= today) {
     const relanceFaite = evts.some(e => e['Type'] === 'relance' && ['Fait','Annulé','No show'].includes(e['Statut']));
-    if (relanceFaite) return false;
+    if (!relanceFaite) {
+      if (dr < today) return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure: '' };
+      // dr === today → vérifier l'heure
+      const relanceEvt = evts.find(e => e['Type'] === 'relance' && e['Statut'] === 'Planifié' && e['Date'] === dr);
+      const heure = relanceEvt ? (relanceEvt['Heure'] || '') : '';
+      if (heure) {
+        const [h, m] = heure.split(':').map(Number);
+        const evtTime = new Date(); evtTime.setHours(h, m, 0, 0);
+        if (now >= evtTime) return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure };
+      } else {
+        return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure: '' };
+      }
+    }
   }
-  return true;
+
+  // ── Vérifie les démos (meet) ──
+  const lateMeet = evts.find(e => {
+    if (e['Type'] !== 'meet' || e['Statut'] !== 'Planifié') return false;
+    const d = e['Date'];
+    if (!d || d > today) return false;
+    if (d < today) return true;
+    if (e['Heure']) {
+      const [h, m] = e['Heure'].split(':').map(Number);
+      const evtTime = new Date(); evtTime.setHours(h, m, 0, 0);
+      return now >= evtTime;
+    }
+    return true;
+  });
+  if (lateMeet) return { isLate: true, type: 'meet', label: 'Démo en retard', date: lateMeet['Date'], heure: lateMeet['Heure'] || '' };
+
+  return { isLate: false, type: null };
+}
+
+// Rétrocompat — retourne true si le prospect a un événement en retard (relance ou démo)
+function isRelanceLate(p) {
+  return getLateStatus(p).isLate;
 }
 
 function getFilteredProspects() {
@@ -1479,7 +1511,8 @@ function renderFullProspect() {
   const appels = appelsCache[p['ID']] || [];
   const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8' };
   const today = new Date().toISOString().split('T')[0];
-  const isLate = isRelanceLate(p);
+  const lateStatus = getLateStatus(p);
+  const isLate = lateStatus.isLate;
   const prospectTags = p['Tags'] ? p['Tags'].split(',').filter(Boolean) : [];
 
   // Show/hide loading bar based on whether data is loaded
@@ -1544,8 +1577,8 @@ function renderFullProspect() {
     ${isLate ? `<div style="background:#FEF2F2;border-bottom:3px solid #EF4444;padding:12px 32px;display:flex;align-items:center;gap:10px;">
       <span style="font-size:18px;">⚠️</span>
       <div>
-        <span style="font-weight:700;color:#DC2626;font-size:13px;">Relance en retard</span>
-        <span style="color:#EF4444;font-size:12px;margin-left:8px;">Prévue le ${formatDate(p['Date relance'])} — à traiter ou reprogrammer</span>
+        <span style="font-weight:700;color:#DC2626;font-size:13px;">${lateStatus.label}</span>
+        <span style="color:#EF4444;font-size:12px;margin-left:8px;">Prévue le ${formatDate(lateStatus.date)}${lateStatus.heure ? ' à ' + lateStatus.heure : ''} — à traiter ou reprogrammer</span>
       </div>
       <div style="margin-left:auto;display:flex;gap:8px;">
         <button onclick="openLateRelanceNote()" style="background:#fff;color:#DC2626;border:2px solid #EF4444;border-radius:8px;padding:6px 14px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;">✏️ Changer le statut</button>
@@ -1674,7 +1707,7 @@ function renderDashboard() {
 
   document.getElementById('dash-grid').innerHTML = `
     <div class="dash-card"><div class="dash-card-accent" style="background:var(--navy)"></div><div class="dash-card-label">Prospects actifs</div><div class="dash-card-value">${actifs}</div></div>
-    <div class="dash-card"><div class="dash-card-accent" style="background:var(--orange)"></div><div class="dash-card-label">Relances en retard</div><div class="dash-card-value" style="color:${late.length > 0 ? 'var(--danger)' : 'var(--text)'}">${late.length}</div></div>
+    <div class="dash-card"><div class="dash-card-accent" style="background:var(--orange)"></div><div class="dash-card-label">Actions en retard</div><div class="dash-card-value" style="color:${late.length > 0 ? 'var(--danger)' : 'var(--text)'}">${late.length}</div></div>
     <div class="dash-card"><div class="dash-card-accent" style="background:var(--success)"></div><div class="dash-card-label">Clients</div><div class="dash-card-value" style="color:var(--success)">${clients}</div><div class="dash-card-sub">Taux conversion : ${taux}%</div></div>
     <div class="dash-card"><div class="dash-card-accent" style="background:#3B82F6"></div><div class="dash-card-label">Démos à venir</div><div class="dash-card-value">${demos}</div></div>
     <div class="dash-card"><div class="dash-card-accent" style="background:var(--text-3)"></div><div class="dash-card-label">Inactifs +${inactifJours}j</div><div class="dash-card-value" style="color:var(--text-3)">${inactifs}</div></div>
@@ -1687,13 +1720,19 @@ function renderDashboard() {
 
   const relEl = document.getElementById('relances-list');
   relEl.innerHTML = late.length === 0 ? '<div class="empty-state">✅ Aucune relance en retard</div>' :
-    late.map(p => `<div class="relance-row" onclick="openDrawer('${p['ID']}')">
+    late.map(p => {
+      const ls = getLateStatus(p);
+      const typeIcon = ls.type === 'meet' ? '🎥' : '📞';
+      const typeLabel = ls.type === 'meet' ? 'Démo' : 'Relance';
+      return `<div class="relance-row" onclick="openDrawer('${p['ID']}')">
       <div><div class="relance-info">${esc(p['Entreprise'] || p['Nom'] || '—')}</div><div class="relance-company">${p['Nom'] && p['Nom'] !== p['Entreprise'] ? p['Nom'] : ''}</div></div>
       <div style="display:flex;align-items:center;gap:10px;">
-        <span class="relance-date">📅 ${formatDate(p['Date relance'])}</span>
+        <span style="font-size:11px;font-weight:600;color:#6B7280;background:#F3F4F6;padding:2px 7px;border-radius:4px;">${typeIcon} ${typeLabel}</span>
+        <span class="relance-date">📅 ${formatDate(ls.date)}${ls.heure ? ' ' + ls.heure : ''}</span>
         <button class="btn-open-full" onclick="event.stopPropagation();openFullProspectById('${p['ID']}')">→</button>
       </div>
-    </div>`).join('');
+    </div>`;
+    }).join('');
 }
 
 
@@ -3025,23 +3064,7 @@ function openLateRelanceNote() {
   const evts = evenementsCache[pid];
   if (!evts) { showToast('Chargement en cours, réessaie dans un instant…', ''); return; }
   const evt = evts.find(e => e['Type'] === 'relance');
-  if (!evt) {
-    // Pas d'événement relance (prospect importé) → proposer de vider la date directement
-    showConfirm('Aucun événement relance associé.<br>Marquer cette relance comme traitée et vider la date ?', 'Relance sans événement', 'Marquer traitée').then(ok => {
-      if (!ok) return;
-      const idx = prospects.findIndex(pr => pr['ID'] == pid);
-      if (idx !== -1) prospects[idx]['Date relance'] = '';
-      if (selectedProspect && selectedProspect['ID'] == pid) selectedProspect['Date relance'] = '';
-      api('updateProspect', { id: pid, dateRelance: '' }).then(r => {
-        if (r?.error) { showToast('❌ Erreur sauvegarde : ' + r.error, 'error'); return; }
-        showToast('Relance marquée traitée ✓', 'success');
-        renderProspectsTable(); renderDashboard();
-        if (drawerOpen) renderDrawer();
-        if (currentView === 'prospect') renderFullProspect();
-      }).catch(() => showToast('❌ Erreur réseau', 'error'));
-    });
-    return;
-  }
+  if (!evt) { showToast('Événement relance introuvable', 'error'); return; }
   openEventNote(evt['ID'], pid);
 }
 
