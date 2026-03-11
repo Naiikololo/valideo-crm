@@ -178,6 +178,8 @@
   .tag-add { background: var(--bg); border: 1px dashed var(--border); border-radius: 6px; padding: 3px 8px; font-size: 11px; cursor: pointer; color: var(--text-3); transition: all 0.15s; }
   .tag-add:hover { border-color: var(--navy); color: var(--navy); }
   .notes-perm textarea { width: 100%; background: var(--surface2); border: 1.5px solid var(--border); border-radius: 8px; padding: 10px 12px; font-size: 13px; color: var(--text); font-family: 'Poppins', sans-serif; resize: vertical; outline: none; min-height: 160px; line-height: 1.6; transition: border-color 0.15s; }
+  .action-type-chip { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: var(--surface2); color: var(--text-2); transition: all 0.15s; user-select: none; }
+  .action-type-chip.selected { background: var(--navy); color: #fff; border-color: var(--navy); }
   .notes-perm textarea:focus { border-color: var(--navy-light); background: #fff; }
   .action-bar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
   .btn-meet { background: var(--surface); color: var(--navy); border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 14px; font-size: 12px; font-weight: 600; cursor: pointer; font-family: 'Poppins', sans-serif; transition: all 0.15s; }
@@ -1606,18 +1608,24 @@ function renderFullProspect() {
         </div>
 
         <div class="action-bar">
-          <button class="btn-call" onclick="toggleAddCall()">📞 Ajouter un appel</button>
+          <button class="btn-call" onclick="toggleAddCall()">+ Ajouter une action</button>
           <button class="btn-edit" onclick="openRelanceModal()" style="padding:8px 14px;font-size:12px;">📅 Planifier relance</button>
           <button class="btn-meet" onclick="openMeetModal()">📹 Meet</button>
         </div>
 
         <div id="add-call-form" class="add-call-form hidden">
-          <div class="form-title">Nouvel appel</div>
+          <div class="form-title">Nouvelle action</div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+            <span class="action-type-chip selected" onclick="selectActionType(this,'📞 Appel')">📞 Appel</span>
+            <span class="action-type-chip" onclick="selectActionType(this,'✉️ Email')">✉️ Email</span>
+            <span class="action-type-chip" onclick="selectActionType(this,'💬 SMS')">💬 SMS</span>
+            <span class="action-type-chip" onclick="selectActionType(this,'📝 Autre')">📝 Autre</span>
+          </div>
           <div class="form-row">
             <input class="form-input" type="date" id="call-date" value="${today}">
             <input class="form-input" type="time" id="call-heure" value="${new Date().toTimeString().slice(0,5)}">
           </div>
-          <textarea class="form-textarea" id="call-note" placeholder="Notes de l'appel..."></textarea>
+          <textarea class="form-textarea" id="call-note" placeholder="Notes..."></textarea>
           <div class="form-btns" style="margin-top:10px;">
             <button class="btn-save" onclick="saveCall()">Enregistrer</button>
             <button class="btn-cancel" onclick="toggleAddCall()">Annuler</button>
@@ -1862,9 +1870,20 @@ function removeTag(tagName) {
 }
 
 // ─── APPELS ────────────────────────────────────────────────
+let _currentActionType = '📞 Appel';
+
+function selectActionType(el, type) {
+  _currentActionType = type;
+  document.querySelectorAll('.action-type-chip').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+}
+
 function toggleAddCall() {
   document.getElementById('add-call-form')?.classList.toggle('hidden');
   const n = document.getElementById('call-note'); if (n) n.value = '';
+  // Reset to Appel
+  _currentActionType = '📞 Appel';
+  document.querySelectorAll('.action-type-chip').forEach((c, i) => c.classList.toggle('selected', i === 0));
 }
 
 let _savingCall = false;
@@ -1879,7 +1898,7 @@ async function saveCall() {
   _savingCall = true;
   const tempId = 'temp_' + Date.now();
   if (!appelsCache[selectedProspect['ID']]) appelsCache[selectedProspect['ID']] = [];
-  appelsCache[selectedProspect['ID']].unshift({'ID':tempId,'Prospect_ID':selectedProspect['ID'],'Date':callDate,'Heure':callHeure,'Note':note});
+  appelsCache[selectedProspect['ID']].unshift({'ID':tempId,'Prospect_ID':selectedProspect['ID'],'Date':callDate,'Heure':callHeure,'Note':note,'Type':_currentActionType});
   const today = new Date().toISOString().split('T')[0];
   const idx = prospects.findIndex(p => p['ID'] == selectedProspect['ID']); if (idx !== -1) prospects[idx]['Dernière activité'] = today;
   // Reset form before render to avoid double submit
@@ -1889,7 +1908,7 @@ async function saveCall() {
   if (currentView === 'prospect') { renderFullProspect(); requestAnimationFrame(refreshResumeCard); }
   showToast('Appel enregistré ✓', 'success');
   _savingCall = false;
-  api('addAppel', { prospectId: selectedProspect['ID'], date: callDate, heure: callHeure, note }).then(r => {
+  api('addAppel', { prospectId: selectedProspect['ID'], date: callDate, heure: callHeure, note, type: _currentActionType }).then(r => {
     if (r?.id) { const calls = appelsCache[selectedProspect['ID']]; if (calls) { const ci = calls.findIndex(c => c['ID'] === tempId); if (ci !== -1) calls[ci]['ID'] = r.id; } }
     if (r?.error) showToast('Erreur enregistrement appel : ' + r.error, 'error');
   });
@@ -2927,10 +2946,13 @@ function renderUnifiedTimeline(pid) {
     all.map((item, i) => {
       const isLast = i === total - 1;
       if (item._type === 'appel') {
+        const actionType = item['Type'] || '📞 Appel';
+        const typeColors = { '📞 Appel': 'var(--orange)', '✉️ Email': '#8B5CF6', '💬 SMS': '#0EA5E9', '📝 Autre': '#64748B' };
+        const dotColor = typeColors[actionType] || 'var(--orange)';
         return `<div class="call-entry" id="call-${item['ID']}">
-          <div class="call-timeline"><div class="call-dot" style="background:var(--orange)"></div>${!isLast ? '<div class="call-line"></div>' : ''}</div>
+          <div class="call-timeline"><div class="call-dot" style="background:${dotColor}"></div>${!isLast ? '<div class="call-line"></div>' : ''}</div>
           <div class="call-body">
-            <div class="timeline-type-label" style="color:var(--orange)">📞 Appel</div>
+            <div class="timeline-type-label" style="color:${dotColor}">${actionType}</div>
             <div class="call-meta">
               <div style="display:flex;gap:8px;align-items:center;">
                 <span style="font-size:12px;font-weight:700;color:var(--text-2);">${formatDate(item['Date'])}</span>
