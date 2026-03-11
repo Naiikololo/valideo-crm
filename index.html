@@ -1207,12 +1207,15 @@ function setTagFilter(f) { activeTagFilter = f; currentPage = 0; renderFilterChi
 
 // Retourne true si la relance est en retard ET non traitée (pas Fait/Annulé/No show)
 function isRelanceLate(p) {
-  const today = new Date().toISOString().split('T')[0];
   const dr = (p['Date relance'] || '').substring(0,10);
-  if (!dr || dr >= today) return false;
+  if (!dr) return false;
   if (['Client','Perdu','Mise en sommeil'].includes(p['Statut'])) return false;
+  // Comparer date relance avec aujourd'hui (date seule, pas heure)
+  const today = new Date().toISOString().split('T')[0];
+  if (dr > today) return false;
+  // Si un événement relance existe avec statut traité → pas en retard
   const evts = evenementsCache[p['ID']];
-  if (evts) {
+  if (evts && evts.length) {
     const relanceFaite = evts.some(e => e['Type'] === 'relance' && ['Fait','Annulé','No show'].includes(e['Statut']));
     if (relanceFaite) return false;
   }
@@ -1273,7 +1276,7 @@ function renderProspectsTable() {
   const rowsHtml = pageList.map(p => {
     const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8', Nom: p['Statut'] || '—' };
     const isLate = isRelanceLate(p);
-    const isSoon = !isLate && p['Date relance'] && (p['Date relance'] || '').substring(0,10) <= tomorrow && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']) && !evenementsCache[p['ID']]?.some(e => e['Type']==='relance' && ['Fait','Annulé','No show'].includes(e['Statut']));
+    const _drSoon = (p['Date relance'] || '').substring(0,10); const isSoon = !isLate && _drSoon && _drSoon <= tomorrow && _drSoon >= today && !['Client','Perdu','Mise en sommeil'].includes(p['Statut']) && !evenementsCache[p['ID']]?.some(e => e['Type']==='relance' && ['Fait','Annulé','No show'].includes(e['Statut']));
     const isDrawerSelected = selectedProspect && selectedProspect['ID'] === p['ID'] && drawerOpen;
     const rowClass = isDrawerSelected ? 'drawer-open' : isLate ? 'row-late' : isSoon ? 'row-soon' : '';
     const statutColor = statut.Couleur || '#94A3B8';
