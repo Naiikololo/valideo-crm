@@ -970,6 +970,38 @@
   </div>
 </div>
 
+<!-- MODAL RÉSILIATION -->
+<div id="modal-resiliation" class="modal-overlay hidden">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-title">❌ Résiliation</div>
+    <div style="font-size:13px;color:var(--text-2);margin-bottom:20px;">Enregistre la résiliation de ce client.</div>
+    <div class="modal-field">
+      <label class="modal-label">Date de résiliation</label>
+      <input class="modal-input" id="resil-date" type="date">
+    </div>
+    <div class="modal-field">
+      <label class="modal-label">Motif</label>
+      <select class="modal-select" id="resil-motif" onchange="onResilMotifChange()">
+        <option value="">-- Choisir --</option>
+        <option>Prix trop élevé</option>
+        <option>Concurrent choisi</option>
+        <option>Pas convaincu</option>
+        <option>Mauvais timing</option>
+        <option>Ne répond plus</option>
+        <option>Autre</option>
+      </select>
+    </div>
+    <div class="modal-field hidden" id="resil-autre-field">
+      <label class="modal-label">Précise le motif</label>
+      <input class="modal-input" id="resil-autre-input" type="text" placeholder="Motif personnalisé...">
+    </div>
+    <div class="modal-btns">
+      <button class="btn-save" style="background:#EF4444;" onclick="confirmResiliation()">Enregistrer la résiliation</button>
+      <button class="btn-cancel" onclick="closeModal('modal-resiliation')">Annuler</button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL CLIENT OFFRE (triggered when status changes to Client) -->
 <div id="modal-client-offre" class="modal-overlay hidden">
   <div class="modal" style="max-width:480px;">
@@ -1003,6 +1035,11 @@
     </div>
 
     <div id="client-abonnement-fields" class="hidden">
+      <!-- Nb utilisateurs — visible uniquement pour Entreprise -->
+      <div class="modal-field" id="client-nb-users-field" style="display:none;">
+        <label class="modal-label">Nombre d'utilisateurs</label>
+        <input class="modal-input" id="client-nb-users" type="number" min="1" placeholder="Ex: 10">
+      </div>
       <div class="modal-field">
         <label class="modal-label">Type d'abonnement</label>
         <div style="display:flex;gap:10px;margin-top:4px;">
@@ -1638,13 +1675,25 @@ function renderFullProspect() {
     ? `<span onclick="openEditNbRapports('${_pid2}')" style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#fff;border:1px solid ${_cfg.border};border-radius:5px;font-size:11px;font-weight:600;color:${_cfg.color};cursor:pointer;">📄${_rapportsDisplay}<span style="font-size:9px;opacity:0.4;">✏️</span></span>`
     : `<span style="display:inline-flex;align-items:center;gap:3px;padding:2px 7px;background:#fff;border:1px solid ${_cfg.border};border-radius:5px;font-size:11px;font-weight:600;color:${_cfg.color};">📄${_rapportsDisplay}</span>`;
 
+  // Résiliation
+  const _dateResil  = p['Date résiliation'] || '';
+  const _motifResil = p['Motif résiliation'] || '';
+
   const _offreChip = `
-    <div onclick="${_editAction}" style="display:inline-flex;align-items:center;gap:8px;background:${_cfg.bg};border:1.5px solid ${_cfg.border};border-radius:8px;padding:5px 10px;cursor:pointer;transition:opacity 0.15s;" title="${_isClient ? 'Modifier l\'abonnement' : 'Modifier l\'offre'}" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
-      <span style="background:${_cfg.badge};color:#fff;border-radius:5px;padding:2px 9px;font-size:11px;font-weight:800;letter-spacing:0.2px;white-space:nowrap;">${_cfg.label}</span>
-      ${_typeAbo ? `<span style="font-size:10px;color:${_cfg.color};font-weight:600;white-space:nowrap;">${_typeAbo === 'Annuel' ? '📆' : '📅'} ${_typeAbo}</span>` : ''}
-      ${_usersTag}
-      ${_rapportsTag}
-      ${_dateAbo ? `<span style="font-size:10px;color:${_cfg.color};font-weight:600;opacity:0.65;white-space:nowrap;border-left:1px solid ${_cfg.border};padding-left:8px;">📅 ${formatDate(_dateAbo)}${_clientDuration ? ` <span style="opacity:0.7;">(${_clientDuration})</span>` : ''}</span>` : ''}
+    <div style="display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;">
+      <div onclick="${_editAction}" style="display:inline-flex;align-items:center;gap:8px;background:${_cfg.bg};border:1.5px solid ${_cfg.border};border-radius:8px;padding:5px 10px;cursor:pointer;transition:opacity 0.15s;" title="${_isClient ? 'Modifier l\'abonnement' : 'Modifier l\'offre'}" onmouseover="this.style.opacity='0.8'" onmouseout="this.style.opacity='1'">
+        <span style="background:${_cfg.badge};color:#fff;border-radius:5px;padding:2px 9px;font-size:11px;font-weight:800;letter-spacing:0.2px;white-space:nowrap;">${_cfg.label}</span>
+        ${_typeAbo ? `<span style="font-size:10px;color:${_cfg.color};font-weight:600;white-space:nowrap;">${_typeAbo === 'Annuel' ? '📆' : '📅'} ${_typeAbo}</span>` : ''}
+        ${_usersTag}
+        ${_rapportsTag}
+        ${_dateAbo ? `<span style="font-size:10px;color:${_cfg.color};font-weight:600;opacity:0.65;white-space:nowrap;border-left:1px solid ${_cfg.border};padding-left:8px;">📅 ${formatDate(_dateAbo)}${_clientDuration ? ` <span style="opacity:0.7;">(${_clientDuration})</span>` : ''}</span>` : ''}
+      </div>
+      ${_isClient && !_dateResil ? `<span onclick="openResilModal('${_pid2}')" style="font-size:11px;color:#94A3B8;cursor:pointer;text-decoration:underline;white-space:nowrap;" title="Enregistrer une résiliation">Résilier</span>` : ''}
+      ${_dateResil ? `<div style="display:inline-flex;align-items:center;gap:6px;background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:8px;padding:5px 10px;cursor:pointer;" onclick="openResilModal('${_pid2}')" title="Modifier la résiliation">
+        <span style="background:#EF4444;color:#fff;border-radius:5px;padding:2px 8px;font-size:11px;font-weight:800;white-space:nowrap;">❌ Résilié</span>
+        <span style="font-size:10px;color:#DC2626;font-weight:600;white-space:nowrap;">${formatDate(_dateResil)}</span>
+        ${_motifResil ? `<span style="font-size:10px;color:#DC2626;opacity:0.75;white-space:nowrap;border-left:1px solid #FCA5A5;padding-left:6px;">${esc(_motifResil)}</span>` : ''}
+      </div>` : ''}
     </div>`;
 
   document.getElementById('prospect-page-content').innerHTML = loadingBarHtml + staleBannerHtml + `
@@ -2703,6 +2752,47 @@ function confirmEventDateEdit() {
 // ─── CLIENT OFFRE MODAL ────────────────────────────────────
 let _pendingClientOffreProspectId = null;
 let _isUpgradeMode = false; // true = modification d'offre existante, false = nouveau client
+let _pendingResilPid = null;
+
+function openResilModal(pid) {
+  _pendingResilPid = pid;
+  const p = prospects.find(pr => pr['ID'] == pid);
+  document.getElementById('resil-date').value = p?.['Date résiliation'] || new Date().toISOString().split('T')[0];
+  const motif = p?.['Motif résiliation'] || '';
+  const standardMotifs = ['Prix trop élevé','Concurrent choisi','Pas convaincu','Mauvais timing','Ne répond plus','Autre'];
+  const isAutre = motif && !standardMotifs.includes(motif);
+  document.getElementById('resil-motif').value = isAutre ? 'Autre' : motif;
+  document.getElementById('resil-autre-input').value = isAutre ? motif : '';
+  document.getElementById('resil-autre-field').classList.toggle('hidden', !isAutre && motif !== 'Autre');
+  document.getElementById('modal-resiliation').classList.remove('hidden');
+}
+
+function onResilMotifChange() {
+  const val = document.getElementById('resil-motif').value;
+  document.getElementById('resil-autre-field').classList.toggle('hidden', val !== 'Autre');
+}
+
+function confirmResiliation() {
+  const pid = _pendingResilPid;
+  const date = document.getElementById('resil-date').value;
+  const motifRaw = document.getElementById('resil-motif').value;
+  if (!date) { showToast('⚠️ Choisis une date', 'error'); return; }
+  if (!motifRaw) { showToast('⚠️ Choisis un motif', 'error'); return; }
+  const motif = motifRaw === 'Autre' ? (document.getElementById('resil-autre-input').value.trim() || 'Autre') : motifRaw;
+
+  closeModal('modal-resiliation');
+
+  const idx = prospects.findIndex(p => p['ID'] == pid);
+  if (idx !== -1) { prospects[idx]['Date résiliation'] = date; prospects[idx]['Motif résiliation'] = motif; }
+  if (selectedProspect?.['ID'] == pid) { selectedProspect['Date résiliation'] = date; selectedProspect['Motif résiliation'] = motif; }
+
+  renderProspectsTable(); renderDashboard();
+  if (drawerOpen) renderDrawer();
+  if (currentView === 'prospect') renderFullProspect();
+  showToast('Résiliation enregistrée ✓', 'success');
+  api('updateProspect', { id: pid, dateResiliation: date, motifResiliation: motif })
+    .then(r => { if (r?.error) showToast('❌ Erreur sauvegarde : ' + r.error, 'error'); });
+}
 
 function convertToClientFromChip(pid) {
   const idx = prospects.findIndex(p => p['ID'] == pid);
@@ -2735,6 +2825,9 @@ function openClientOffreModal(pid, upgradeMode = false) {
 
   // Date par défaut = aujourd'hui, ou existante
   document.getElementById('client-date-abonnement').value = p?.['Date abonnement'] || new Date().toISOString().split('T')[0];
+  // Nb users
+  const nbUsersInput = document.getElementById('client-nb-users');
+  if (nbUsersInput) nbUsersInput.value = p?.['Nb utilisateurs'] || '';
 
   // Reset + pré-sélectionner type abonnement
   document.querySelectorAll('input[name="client-abonnement-type"]').forEach(r => {
@@ -2753,6 +2846,9 @@ function openClientOffreModal(pid, upgradeMode = false) {
 
 function selectClientOffre(offre) {
   document.getElementById('client-offre-select').value = offre;
+  // Champ utilisateurs uniquement pour Entreprise
+  const usersField = document.getElementById('client-nb-users-field');
+  if (usersField) usersField.style.display = offre === 'Entreprise' ? 'block' : 'none';
   // Styles sélecteur visuel
   document.querySelectorAll('.client-offre-btn').forEach(btn => {
     const isSelected = btn.dataset.offre === offre;
@@ -2799,6 +2895,7 @@ function confirmClientOffre() {
   const typeAbonnement = document.querySelector('input[name="client-abonnement-type"]:checked')?.value || '';
   const dateAbonnement = document.getElementById('client-date-abonnement').value || '';
   if (!typeAbonnement) { showToast('⚠️ Choisis un type d\'abonnement (Mensuel ou Annuel)', 'error'); return; }
+  const nbUsersVal = offre === 'Entreprise' ? (document.getElementById('client-nb-users')?.value || '') : '';
 
   closeModal('modal-client-offre');
 
@@ -2807,11 +2904,13 @@ function confirmClientOffre() {
     prospects[idx]['Offre intéressée'] = offre;
     prospects[idx]['Type abonnement']  = typeAbonnement;
     prospects[idx]['Date abonnement']  = dateAbonnement;
+    if (nbUsersVal) prospects[idx]['Nb utilisateurs'] = nbUsersVal;
   }
   if (selectedProspect?.['ID'] == pid) {
     selectedProspect['Offre intéressée'] = offre;
     selectedProspect['Type abonnement']  = typeAbonnement;
     selectedProspect['Date abonnement']  = dateAbonnement;
+    if (nbUsersVal) selectedProspect['Nb utilisateurs'] = nbUsersVal;
   }
 
   renderProspectsTable(); renderDashboard();
@@ -2819,7 +2918,7 @@ function confirmClientOffre() {
   if (currentView === 'prospect') renderFullProspect();
   showToast(_isUpgradeMode ? 'Abonnement mis à jour ✓' : 'Client enregistré ✓', 'success');
 
-  api('updateProspect', { id: pid, offre, typeAbonnement, dateAbonnement })
+  api('updateProspect', { id: pid, offre, typeAbonnement, dateAbonnement, ...(nbUsersVal ? { nbUtilisateurs: nbUsersVal } : {}) })
     .then(r => { if (r?.error) showToast('❌ Erreur sauvegarde : ' + r.error, 'error'); })
     .catch(() => showToast('❌ Erreur réseau', 'error'));
 }
