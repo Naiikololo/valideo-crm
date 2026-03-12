@@ -1308,6 +1308,13 @@ function setTagFilter(f) { activeTagFilter = f; currentPage = 0; renderFilterChi
 
 // ─── PROSPECTS TABLE ───────────────────────────────────────
 
+// Helper : retourne le type effectif d'un événement
+// Une relance avec LienMeet = un meet importé mal typé → on le traite comme meet
+function getEvtType(e) {
+  if (!e) return 'relance';
+  return (e['Type'] === 'meet' || (e['Type'] === 'relance' && e['LienMeet'])) ? 'meet' : 'relance';
+}
+
 // Retourne { isLate, type, label, date, heure, evtId }
 function getLateStatus(p) {
   if (['Client','Client Geswork','Perdu','Mise en sommeil'].includes(p['Statut'])) return { isLate: false };
@@ -1317,8 +1324,8 @@ function getLateStatus(p) {
   const cacheLoaded = Array.isArray(evts);
 
   if (cacheLoaded) {
-    // Relance planifiee en retard
-    const relanceEvt = evts.find(e => e['Type'] === 'relance' && e['Statut'] === 'Planifie' || e['Type'] === 'relance' && e['Statut'] === 'Planifié');
+    // Relance planifiée en retard (type relance SANS LienMeet)
+    const relanceEvt = evts.find(e => getEvtType(e) === 'relance' && ['Planifie','Planifié'].includes(e['Statut']));
     if (relanceEvt && relanceEvt['Date'] && relanceEvt['Date'] <= today) {
       const heure = relanceEvt['Heure'] || '';
       if (relanceEvt['Date'] < today) return { isLate: true, type: 'relance', label: 'Relance en retard', date: relanceEvt['Date'], heure, evtId: relanceEvt['ID'] };
@@ -1327,14 +1334,14 @@ function getLateStatus(p) {
       const rt = new Date(); rt.setHours(rh, rm, 0, 0);
       if (now >= rt) return { isLate: true, type: 'relance', label: 'Relance en retard', date: relanceEvt['Date'], heure, evtId: relanceEvt['ID'] };
     }
-    // Demo (meet) planifiee en retard
+    // Meet planifié en retard (type meet OU relance avec LienMeet)
     const lateMeet = evts.find(e => {
-      if (e['Type'] !== 'meet' || !['Planifié','Planifie'].includes(e['Statut']) || !e['Date'] || e['Date'] > today) return false;
+      if (getEvtType(e) !== 'meet' || !['Planifié','Planifie'].includes(e['Statut']) || !e['Date'] || e['Date'] > today) return false;
       if (e['Date'] < today) return true;
       if (e['Heure']) { const [mh,mm] = e['Heure'].split(':').map(Number); const mt = new Date(); mt.setHours(mh,mm,0,0); return now >= mt; }
       return true;
     });
-    if (lateMeet) return { isLate: true, type: 'meet', label: 'Demo en retard', date: lateMeet['Date'], heure: lateMeet['Heure'] || '', evtId: lateMeet['ID'] };
+    if (lateMeet) return { isLate: true, type: 'meet', label: 'Démo en retard', date: lateMeet['Date'], heure: lateMeet['Heure'] || '', evtId: lateMeet['ID'] };
     return { isLate: false };
   }
 
@@ -2995,7 +3002,7 @@ function openEventNote(eventId, pid) {
   _currentNoteEventPid = pid;
   _currentNoteEventStatut = evt['Statut'];
 
-  const isMeet = evt['Type'] === 'meet';
+  const isMeet = getEvtType(evt) === 'meet';
   const title = isMeet ? '📹 Notes Google Meet' : '📅 Notes Relance';
   document.getElementById('event-note-title').textContent = title;
 
@@ -3056,7 +3063,7 @@ function setEventStatutFromNote(newStatut) {
   // Update label
   const evts = evenementsCache[_currentNoteEventPid] || [];
   const evt = evts.find(e => e['ID'] == _currentNoteEventId);
-  const isMeet = evt?.['Type'] === 'meet';
+  const isMeet = getEvtType(evt) === 'meet';
   const labelEl = document.getElementById('event-note-label');
   if (newStatut === 'No show') labelEl.textContent = 'Notes (No show)';
   else if (isMeet && newStatut === 'Fait') labelEl.textContent = 'Notes de démo';
@@ -3147,8 +3154,8 @@ function renderResumeCard(p) {
   html += `<div class="right-item"><div class="right-item-label">Dernière activité</div><div class="right-item-value">${formatDate(p['Dernière activité'])}</div></div>`;
 
   if (nextEvt) {
-    const evtIcon = nextEvt['Type'] === 'meet' ? '📹' : '📅';
-    const evtLabel = nextEvt['Type'] === 'meet' ? 'Meet planifié' : 'Relance planifiée';
+    const evtIcon = getEvtType(nextEvt) === 'meet' ? '📹' : '📅';
+    const evtLabel = getEvtType(nextEvt) === 'meet' ? 'Meet planifié' : 'Relance planifiée';
     html += `<div class="right-item"><div class="right-item-label">${evtIcon} ${evtLabel}</div><div class="right-item-value orange">${formatDate(nextEvt['Date'])}${nextEvt['Heure'] ? ' à ' + nextEvt['Heure'] : ''}</div></div>`;
   } else if (p['Date relance']) {
     html += `<div class="right-item"><div class="right-item-label">📅 Prochaine relance</div><div class="right-item-value ${isLate ? 'danger' : 'orange'}">${isLate ? '⚠️ ' : ''}${formatDate(p['Date relance'])}</div></div>`;
@@ -3300,15 +3307,17 @@ function renderEventsRightPanel(pid) {
   const past = evts.filter(e => e['Statut'] !== 'Planifié').sort((a,b) => (b['Date']+(b['Heure']||'')).localeCompare(a['Date']+(a['Heure']||'')));
 
   const renderEventCard = (e, isPast) => {
-    const isMeet = e['Type'] === 'meet';
-    const accentColor = isMeet ? '#3B82F6' : '#10B981';
-    const bgColor = isMeet ? '#EFF6FF' : '#F0FDF4';
+    const isMeet = getEvtType(e) === 'meet';
+    const accentColor = isMeet ? '#3B82F6' : '#F97316';
+    const bgColor     = isMeet ? '#EFF6FF'  : '#FFF7ED';
+    const typeIcon    = isMeet ? '📹' : '📞';
+    const typeLabel   = isMeet ? 'Google Meet' : 'Relance';
     const statutClass = { 'Planifié':'planifie','Fait':'fait','No show':'noshow','Annulé':'annule','Reprogrammé':'reprog' }[e['Statut']] || 'planifie';
     return `<div style="background:${bgColor};border:1px solid ${accentColor}33;border-radius:10px;padding:12px 14px;margin-bottom:8px;${isPast ? 'opacity:0.7;' : ''}">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
         <div style="display:flex;align-items:center;gap:6px;">
-          <span style="font-size:15px;">${isMeet ? '📹' : '📅'}</span>
-          <span style="font-size:11px;font-weight:700;color:${accentColor};text-transform:uppercase;letter-spacing:0.4px;">${isMeet ? 'Google Meet' : 'Relance'}</span>
+          <span style="font-size:15px;">${typeIcon}</span>
+          <span style="font-size:11px;font-weight:700;color:${accentColor};text-transform:uppercase;letter-spacing:0.4px;">${typeLabel}</span>
         </div>
         <span class="meet-statut meet-statut-${statutClass}">${e['Statut']}</span>
       </div>
@@ -3406,11 +3415,11 @@ function renderUnifiedTimeline(pid) {
           </div>
         </div>`;
       } else {
-        const isMeet = item['Type'] === 'meet';
+        const isMeet = getEvtType(item) === 'meet';
         const statutClass = { 'Planifié':'planifie','Fait':'fait','No show':'noshow','Annulé':'annule','Reprogrammé':'reprog' }[item['Statut']] || 'planifie';
-        const dotColor = isMeet ? '#3B82F6' : '#10B981';
-        const typeLabel = isMeet ? '📹 Google Meet' : '📅 Relance';
-        const typeColor = isMeet ? '#3B82F6' : '#10B981';
+        const dotColor = isMeet ? '#3B82F6' : '#F97316';
+        const typeLabel = isMeet ? '📹 Google Meet' : '📞 Relance';
+        const typeColor = isMeet ? '#3B82F6' : '#F97316';
         return `<div class="call-entry" id="evt-${item['ID']}">
           <div class="call-timeline"><div class="call-dot" style="background:${dotColor}"></div>${!isLast ? '<div class="call-line"></div>' : ''}</div>
           <div class="call-body">
