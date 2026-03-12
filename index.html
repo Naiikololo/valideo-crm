@@ -1392,7 +1392,10 @@ function getFilteredProspects() {
     if (activeOffreFilter && p['Offre intéressée'] !== activeOffreFilter) return false;
     const dr = (p['Date relance'] || '').substring(0,10);
     const excluded = ['Client','Client Geswork','Perdu','Mise en sommeil'];
-    if (activeRelanceFilter === 'today' && !(dr === today && !excluded.includes(p['Statut']))) return false;
+    if (activeRelanceFilter === 'today') {
+      const na = getNextAction(p);
+      if (!na || na.date !== today || excluded.includes(p['Statut'])) return false;
+    }
     if (activeRelanceFilter === 'late' && !isRelanceLate(p)) return false;
     if (activeRelanceFilter === 'inactif') {
       const inactifJours = parseInt(parametres['inactivite_jours'] || 30);
@@ -1471,7 +1474,8 @@ function renderProspectsTable() {
   const rowsHtml = pageList.map(p => {
     const statut = statuts.find(s => s['Nom'] === p['Statut']) || { Couleur: '#94A3B8', Nom: p['Statut'] || '—' };
     const isLate = isRelanceLate(p);
-    const _drSoon = (p['Date relance'] || '').substring(0,10); const isSoon = !isLate && _drSoon && _drSoon <= tomorrow && _drSoon >= today && !['Client','Client Geswork','Perdu','Mise en sommeil'].includes(p['Statut']) && !evenementsCache[p['ID']]?.some(e => e['Type']==='relance' && ['Fait','Annulé','No show'].includes(e['Statut']));
+    const na = getNextAction(p);
+    const isSoon = !isLate && na && !['Client','Client Geswork','Perdu','Mise en sommeil'].includes(p['Statut']) && na.date >= today && na.date <= tomorrow;
     const isDrawerSelected = selectedProspect && selectedProspect['ID'] === p['ID'] && drawerOpen;
     const rowClass = isDrawerSelected ? 'drawer-open' : isLate ? 'row-late' : isSoon ? 'row-soon' : '';
     const statutColor = statut.Couleur || '#94A3B8';
@@ -1495,12 +1499,12 @@ function renderProspectsTable() {
         if (!na) return '<span style="color:var(--text-3);font-size:12px;">—</span>';
         const icon = na.type === 'meet' ? '🎥' : '📞';
         const isPast = na.date < today || (na.date === today && na.heure && (() => { const [h,m] = na.heure.split(':').map(Number); const t = new Date(); t.setHours(h,m,0,0); return new Date() >= t; })());
-        const color = isPast ? 'var(--danger)' : na.date === today ? '#F97316' : 'var(--text-2)';
-        return `<span class="relance-chip ${isPast ? 'late' : 'ok'}" style="display:inline-flex;align-items:center;gap:4px;">
-          ${isPast ? '⚠️' : icon}
-          <span>${na.label}</span>
-          <span style="font-weight:700;">${formatDate(na.date)}</span>
-          ${na.heure ? `<span style="opacity:0.75;">${na.heure}</span>` : ''}
+        const chipClass = isPast ? 'late' : 'ok';
+        const accentColor = isPast ? 'var(--danger)' : na.date === today ? '#F97316' : 'var(--text-2)';
+        return `<span class="relance-chip ${chipClass}" style="display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;padding:4px 8px;">
+          <span style="font-size:10px;font-weight:700;">${isPast ? '⚠️' : icon} ${na.label}</span>
+          <span style="font-size:11px;font-weight:800;">${formatDate(na.date)}</span>
+          ${na.heure ? `<span style="font-size:10px;opacity:0.75;">${na.heure}</span>` : ''}
         </span>`;
       })()}</div>
       <div style="font-size:12px;color:var(--text-2);">${esc(p['Secteur'] || '—')}</div>
