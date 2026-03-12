@@ -1201,29 +1201,44 @@ async function loadProspects() {
 
 function preloadRecentProspects() {
   const today = new Date().toISOString().split('T')[0];
-  const toLoad = [...prospects]
-    .filter(p => !appelsCache[p['ID']] || !evenementsCache[p['ID']])
-    .sort((a, b) => {
-      const aLate = (a['Date relance'] || '').substring(0,10) <= today && a['Date relance'] ? 1 : 0;
-      const bLate = (b['Date relance'] || '').substring(0,10) <= today && b['Date relance'] ? 1 : 0;
-      if (bLate !== aLate) return bLate - aLate;
-      return (b['Dernière activité'] || '').localeCompare(a['Dernière activité'] || '');
-    })
+
+  // Tous les prospects avec relance <= aujourd'hui → chargés en parallèle immédiatement
+  // Ce sont eux qui déterminent les urgences, donc on ne peut pas se permettre de les charger en séquence lente
+  const withRelance = prospects.filter(p =>
+    !evenementsCache[p['ID']] &&
+    !['Client','Client Geswork','Perdu','Mise en sommeil'].includes(p['Statut']) &&
+    p['Date relance'] &&
+    (p['Date relance']).substring(0, 10) <= today
+  );
+
+  // Charger tous en parallèle, puis redessiner une seule fois
+  if (withRelance.length > 0) {
+    Promise.all(
+      withRelance.map(p => loadEvenements(p['ID']))
+    ).then(() => {
+      renderDashboard();
+      renderProspectsTable();
+    });
+  }
+
+  // Prospects récents (appels + événements) en séquence lente — purement pour le confort
+  const recentOthers = [...prospects]
+    .filter(p => (!appelsCache[p['ID']] || !evenementsCache[p['ID']]) && !withRelance.includes(p))
+    .sort((a, b) => (b['Dernière activité'] || '').localeCompare(a['Dernière activité'] || ''))
     .slice(0, 5);
-  if (!toLoad.length) return;
+
   let i = 0;
   function loadNext() {
-    if (i >= toLoad.length) return;
-    const p = toLoad[i++];
+    if (i >= recentOthers.length) return;
+    const p = recentOthers[i++];
     const pid = p['ID'];
     Promise.all([
       appelsCache[pid] ? Promise.resolve() : loadAppels(pid),
       evenementsCache[pid] ? Promise.resolve() : loadEvenements(pid)
     ]).then(() => {
-      renderDashboard();
       if (selectedProspect?.['ID'] == pid && currentView === 'prospect') renderFullProspect();
     });
-    setTimeout(loadNext, 1200);
+    setTimeout(loadNext, 1500);
   }
   setTimeout(loadNext, 2000);
 }
@@ -1323,9 +1338,11 @@ function getLateStatus(p) {
     return { isLate: false };
   }
 
-  // Cache pas encore charge : fallback sur Date relance
+  // Cache pas encore chargé : fallback conservateur
+  // On ne met en urgence QUE si la date est strictement passée (avant aujourd'hui)
+  // Si c'est aujourd'hui sans cache → on attend le vrai chargement, pas d'urgence prématurée
   const dr = (p['Date relance'] || '').substring(0, 10);
-  if (dr && dr <= today) return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure: '', evtId: null };
+  if (dr && dr < today) return { isLate: true, type: 'relance', label: 'Relance en retard', date: dr, heure: '', evtId: null };
   return { isLate: false };
 }
 
