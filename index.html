@@ -637,7 +637,7 @@
       </div>
       <div class="prospects-table">
         <div class="table-header">
-          <div>Prospect</div><div>Contact</div><div>Statut</div><div>Relance</div>
+          <div>Prospect</div><div>Contact</div><div>Statut</div><div>Prochaine action</div>
           <div>Secteur</div><div>Offre</div><div>Source</div><div>Tags</div><div></div>
         </div>
         <div id="prospects-tbody"></div>
@@ -1306,6 +1306,34 @@ function renderOffreChips() {
 }
 function setTagFilter(f) { activeTagFilter = f; currentPage = 0; renderFilterChips(); renderProspectsTable(); }
 
+// Retourne la prochaine action planifiée (meet ou relance) : { type, date, heure, label }
+// ou null si rien de planifié
+function getNextAction(p) {
+  const evts = evenementsCache[p['ID']];
+  const today = new Date().toISOString().split('T')[0];
+
+  if (Array.isArray(evts)) {
+    // Cherche le prochain événement planifié (meet ou relance) non passé
+    const upcoming = evts
+      .filter(e => ['relance','meet'].includes(e['Type']) && ['Planifié','Planifie'].includes(e['Statut']) && e['Date'])
+      .sort((a, b) => {
+        const da = a['Date'] + (a['Heure'] ? 'T' + a['Heure'] : 'T00:00');
+        const db = b['Date'] + (b['Heure'] ? 'T' + b['Heure'] : 'T00:00');
+        return da.localeCompare(db);
+      });
+    if (upcoming.length > 0) {
+      const e = upcoming[0];
+      return { type: e['Type'], date: e['Date'], heure: e['Heure'] || '', label: e['Type'] === 'meet' ? 'Démo' : 'Relance' };
+    }
+    return null;
+  }
+
+  // Fallback sans cache : utilise Date relance du prospect
+  const dr = (p['Date relance'] || '').substring(0, 10);
+  if (dr) return { type: 'relance', date: dr, heure: '', label: 'Relance' };
+  return null;
+}
+
 // ─── PROSPECTS TABLE ───────────────────────────────────────
 
 // Helper : retourne le type effectif d'un événement
@@ -1384,12 +1412,14 @@ function getFilteredProspects() {
     if (aInactif !== bInactif) return aInactif - bInactif;
 
     if (currentSort === 'relance_asc') {
-      // Tri par date relance croissante — sans date en fin
-      const aD = a['Date relance'] || '';
-      const bD = b['Date relance'] || '';
-      if (aD && bD) return aD.localeCompare(bD);
-      if (aD) return -1;
-      if (bD) return 1;
+      // Tri par prochaine action croissante (date + heure) — sans action en fin
+      const naA = getNextAction(a);
+      const naB = getNextAction(b);
+      const keyA = naA ? naA.date + (naA.heure ? 'T' + naA.heure : 'T00:00') : '';
+      const keyB = naB ? naB.date + (naB.heure ? 'T' + naB.heure : 'T00:00') : '';
+      if (keyA && keyB) return keyA.localeCompare(keyB);
+      if (keyA) return -1;
+      if (keyB) return 1;
       return (b['Date création'] || '').localeCompare(a['Date création'] || '');
     }
 
@@ -1405,7 +1435,7 @@ function toggleSortRelance() {
   currentSort = currentSort === 'relance_asc' ? 'default' : 'relance_asc';
   currentPage = 0;
   document.getElementById('chip-sort-relance').classList.toggle('active', currentSort === 'relance_asc');
-  document.getElementById('chip-sort-relance').textContent = currentSort === 'relance_asc' ? '🗓 Relance ↑' : '🗓 Trier par relance';
+  document.getElementById('chip-sort-relance').textContent = currentSort === 'relance_asc' ? '🗓 Action ↑' : '🗓 Trier par action';
   renderProspectsTable();
 }
 
@@ -1460,7 +1490,19 @@ function renderProspectsTable() {
         ${!p['Téléphone'] && !p['Email'] ? `<span style="color:var(--text-3);">—</span>` : ''}
       </div>
       <div><span class="badge" style="background:${statut.Couleur}22;color:${statut.Couleur};border:1px solid ${statut.Couleur}44;"><span class="badge-dot" style="background:${statut.Couleur}"></span>${esc(statut.Nom)}</span></div>
-      <div>${p['Date relance'] ? `<span class="relance-chip ${isLate ? 'late' : 'ok'}">${isLate ? '⚠️ ' : '📅 '}${formatDate(p['Date relance'])}</span>` : '<span style="color:var(--text-3);font-size:12px;">—</span>'}</div>
+      <div>${(() => {
+        const na = getNextAction(p);
+        if (!na) return '<span style="color:var(--text-3);font-size:12px;">—</span>';
+        const icon = na.type === 'meet' ? '🎥' : '📞';
+        const isPast = na.date < today || (na.date === today && na.heure && (() => { const [h,m] = na.heure.split(':').map(Number); const t = new Date(); t.setHours(h,m,0,0); return new Date() >= t; })());
+        const color = isPast ? 'var(--danger)' : na.date === today ? '#F97316' : 'var(--text-2)';
+        return `<span class="relance-chip ${isPast ? 'late' : 'ok'}" style="display:inline-flex;align-items:center;gap:4px;">
+          ${isPast ? '⚠️' : icon}
+          <span>${na.label}</span>
+          <span style="font-weight:700;">${formatDate(na.date)}</span>
+          ${na.heure ? `<span style="opacity:0.75;">${na.heure}</span>` : ''}
+        </span>`;
+      })()}</div>
       <div style="font-size:12px;color:var(--text-2);">${esc(p['Secteur'] || '—')}</div>
       <div>${(() => {
         const _ov  = p['Offre intéressée'] || '';
