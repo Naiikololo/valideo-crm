@@ -1202,8 +1202,7 @@ async function loadProspects() {
 function preloadRecentProspects() {
   const today = new Date().toISOString().split('T')[0];
 
-  // Tous les prospects avec relance <= aujourd'hui → chargés en parallèle immédiatement
-  // Ce sont eux qui déterminent les urgences, donc on ne peut pas se permettre de les charger en séquence lente
+  // Prospects avec relance <= aujourd'hui → prioritaires pour les urgences
   const withRelance = prospects.filter(p =>
     !evenementsCache[p['ID']] &&
     !['Client','Client Geswork','Perdu','Mise en sommeil'].includes(p['Statut']) &&
@@ -1211,36 +1210,48 @@ function preloadRecentProspects() {
     (p['Date relance']).substring(0, 10) <= today
   );
 
-  // Charger tous en parallèle, puis redessiner une seule fois
-  if (withRelance.length > 0) {
-    Promise.all(
-      withRelance.map(p => loadEvenements(p['ID']))
-    ).then(() => {
-      renderDashboard();
-      renderProspectsTable();
-    });
-  }
-
-  // Prospects récents (appels + événements) en séquence lente — purement pour le confort
+  // Autres prospects récents (appels + événements)
   const recentOthers = [...prospects]
     .filter(p => (!appelsCache[p['ID']] || !evenementsCache[p['ID']]) && !withRelance.includes(p))
     .sort((a, b) => (b['Dernière activité'] || '').localeCompare(a['Dernière activité'] || ''))
     .slice(0, 5);
 
+  // Chargement séquentiel par lots de 3, délai court pour les urgents
+  const urgent = withRelance.slice(0, 20); // max 20 urgents
   let i = 0;
-  function loadNext() {
-    if (i >= recentOthers.length) return;
-    const p = recentOthers[i++];
-    const pid = p['ID'];
-    Promise.all([
-      appelsCache[pid] ? Promise.resolve() : loadAppels(pid),
-      evenementsCache[pid] ? Promise.resolve() : loadEvenements(pid)
-    ]).then(() => {
-      if (selectedProspect?.['ID'] == pid && currentView === 'prospect') renderFullProspect();
+  const BATCH = 3;
+
+  function loadBatch(items, delay, onDone) {
+    if (i >= items.length) { if (onDone) onDone(); return; }
+    const batch = items.slice(i, i + BATCH);
+    i += BATCH;
+    Promise.all(batch.map(p => loadEvenements(p['ID']))).then(() => {
+      renderDashboard();
+      setTimeout(() => loadBatch(items, delay, onDone), delay);
     });
-    setTimeout(loadNext, 1500);
   }
-  setTimeout(loadNext, 2000);
+
+  // D'abord les urgents (par lots de 3, 400ms entre lots)
+  setTimeout(() => {
+    loadBatch(urgent, 400, () => {
+      // Puis les récents
+      i = 0;
+      const others = recentOthers;
+      function loadOther() {
+        if (i >= others.length) return;
+        const p = others[i++];
+        const pid = p['ID'];
+        Promise.all([
+          appelsCache[pid] ? Promise.resolve() : loadAppels(pid),
+          evenementsCache[pid] ? Promise.resolve() : loadEvenements(pid)
+        ]).then(() => {
+          if (selectedProspect?.['ID'] == pid && currentView === 'prospect') renderFullProspect();
+        });
+        setTimeout(loadOther, 1500);
+      }
+      setTimeout(loadOther, 1000);
+    });
+  }, 800);
 }
 async function loadStatuts() { const d = await api('getStatuts'); statuts = Array.isArray(d) ? d : []; }
 async function loadTags() { const d = await api('getTags'); tags = Array.isArray(d) ? d : []; }
