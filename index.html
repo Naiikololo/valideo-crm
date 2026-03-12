@@ -1313,7 +1313,6 @@ function getNextAction(p) {
   const today = new Date().toISOString().split('T')[0];
 
   if (Array.isArray(evts)) {
-    // Cherche le prochain événement planifié (meet ou relance) non passé
     const upcoming = evts
       .filter(e => ['relance','meet'].includes(e['Type']) && ['Planifié','Planifie'].includes(e['Statut']) && e['Date'])
       .sort((a, b) => {
@@ -1323,12 +1322,13 @@ function getNextAction(p) {
       });
     if (upcoming.length > 0) {
       const e = upcoming[0];
-      return { type: e['Type'], date: e['Date'], heure: e['Heure'] || '', label: e['Type'] === 'meet' ? 'Démo' : 'Relance' };
+      const type = getEvtType(e);
+      return { type, date: e['Date'], heure: e['Heure'] || '', label: type === 'meet' ? 'Démo' : 'Relance' };
     }
     return null;
   }
 
-  // Fallback sans cache : utilise Date relance du prospect
+  // Fallback sans cache
   const dr = (p['Date relance'] || '').substring(0, 10);
   if (dr) return { type: 'relance', date: dr, heure: '', label: 'Relance' };
   return null;
@@ -1445,9 +1445,14 @@ function toggleSortRelance() {
 function toggleRelanceFilter(type) {
   activeRelanceFilter = activeRelanceFilter === type ? '' : type;
   currentPage = 0;
+  // Filtre aujourd'hui → tri par heure automatique
+  if (activeRelanceFilter === 'today') { currentSort = 'relance_asc'; }
+  else if (type === 'today' && activeRelanceFilter === '') { currentSort = 'default'; }
   document.getElementById('chip-relance-today').classList.toggle('active', activeRelanceFilter === 'today');
   document.getElementById('chip-relance-late').classList.toggle('active', activeRelanceFilter === 'late');
   document.getElementById('chip-inactif').classList.toggle('active', activeRelanceFilter === 'inactif');
+  document.getElementById('chip-sort-relance').classList.toggle('active', currentSort === 'relance_asc');
+  document.getElementById('chip-sort-relance').textContent = currentSort === 'relance_asc' ? '🗓 Action ↑' : '🗓 Trier par action';
   renderProspectsTable();
 }
 
@@ -1501,7 +1506,7 @@ function renderProspectsTable() {
         const isPast = na.date < today || (na.date === today && na.heure && (() => { const [h,m] = na.heure.split(':').map(Number); const t = new Date(); t.setHours(h,m,0,0); return new Date() >= t; })());
         const chipClass = isPast ? 'late' : 'ok';
         const accentColor = isPast ? 'var(--danger)' : na.date === today ? '#F97316' : 'var(--text-2)';
-        return `<span class="relance-chip ${chipClass}" style="display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;padding:4px 8px;">
+        return `<span class="relance-chip ${chipClass}" style="display:inline-flex;flex-direction:column;align-items:center;gap:1px;padding:4px 8px;text-align:center;">
           <span style="font-size:10px;font-weight:700;">${isPast ? '⚠️' : icon} ${na.label}</span>
           <span style="font-size:11px;font-weight:800;">${formatDate(na.date)}</span>
           ${na.heure ? `<span style="font-size:10px;opacity:0.75;">${na.heure}</span>` : ''}
